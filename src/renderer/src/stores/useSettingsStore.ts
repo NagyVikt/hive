@@ -50,6 +50,7 @@ export interface AppSettings {
 
   // Model
   selectedModel: SelectedModel | null
+  selectedModelByProvider: Record<string, SelectedModel>
 
   // Quick Actions
   lastOpenAction: QuickActionType | null
@@ -96,6 +97,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   ghosttyFontSize: 14,
   ghosttyPromotionDismissed: false,
   selectedModel: null,
+  selectedModelByProvider: {},
   lastOpenAction: null,
   favoriteModels: [],
   customChromeCommand: '',
@@ -137,7 +139,15 @@ interface SettingsState extends AppSettings {
   closeSettings: () => void
   setActiveSection: (section: string) => void
   updateSetting: <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => void
-  setSelectedModel: (model: SelectedModel) => Promise<void>
+  setSelectedModel: (
+    model: SelectedModel,
+    agentSdk?: AppSettings['defaultAgentSdk']
+  ) => Promise<void>
+  setSelectedModelForSdk: (
+    agentSdk: AppSettings['defaultAgentSdk'],
+    model: SelectedModel,
+    options?: { skipBackendPush?: boolean }
+  ) => Promise<void>
   toggleFavoriteModel: (providerID: string, modelID: string) => void
   setModelVariantDefault: (providerID: string, modelID: string, variant: string) => void
   getModelVariantDefault: (providerID: string, modelID: string) => string | undefined
@@ -182,6 +192,7 @@ function extractSettings(state: SettingsState): AppSettings {
     ghosttyFontSize: state.ghosttyFontSize,
     ghosttyPromotionDismissed: state.ghosttyPromotionDismissed,
     selectedModel: state.selectedModel,
+    selectedModelByProvider: state.selectedModelByProvider,
     lastOpenAction: state.lastOpenAction,
     favoriteModels: state.favoriteModels,
     customChromeCommand: state.customChromeCommand,
@@ -194,6 +205,26 @@ function extractSettings(state: SettingsState): AppSettings {
     commandFilter: state.commandFilter,
     telemetryEnabled: state.telemetryEnabled
   }
+}
+
+/**
+ * Resolve the default model for a given agent SDK using the per-provider priority chain.
+ * Priority: per-provider default → (legacy only) global selectedModel.
+ * Returns null when per-provider defaults exist but none matches the requested SDK.
+ *
+ * Accepts an optional state snapshot so it can be used inside Zustand selectors
+ * (where getState() must not be called). Falls back to store.getState() when omitted.
+ */
+export function resolveModelForSdk(
+  agentSdk: string,
+  state?: Pick<AppSettings, 'selectedModelByProvider' | 'selectedModel'>
+): SelectedModel | null {
+  const s = state ?? useSettingsStore.getState()
+  const perProvider = s.selectedModelByProvider[agentSdk]
+  if (perProvider) return perProvider
+  // Legacy fallback only when per-provider feature not yet active (migration)
+  if (Object.keys(s.selectedModelByProvider).length > 0) return null
+  return s.selectedModel
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -229,7 +260,13 @@ export const useSettingsStore = create<SettingsState>()(
         }
       },
 
-      setSelectedModel: async (model: SelectedModel) => {
+      setSelectedModel: async (
+        model: SelectedModel,
+        agentSdk?: AppSettings['defaultAgentSdk']
+      ) => {
+        if (agentSdk) {
+          return get().setSelectedModelForSdk(agentSdk, model)
+        }
         set({ selectedModel: model })
         // Persist to backend (settings DB + opencode service)
         try {
@@ -239,6 +276,29 @@ export const useSettingsStore = create<SettingsState>()(
         }
         // Also save in app settings
         const settings = extractSettings({ ...get(), selectedModel: model } as SettingsState)
+        saveToDatabase(settings)
+      },
+
+      setSelectedModelForSdk: async (
+        agentSdk: AppSettings['defaultAgentSdk'],
+        model: SelectedModel,
+        options?: { skipBackendPush?: boolean }
+      ) => {
+        const updated = { ...get().selectedModelByProvider, [agentSdk]: model }
+        set({ selectedModelByProvider: updated })
+        // Push to backend (skip for terminal — no backend service, or when caller already pushed)
+        if (agentSdk !== 'terminal' && !options?.skipBackendPush) {
+          try {
+            await window.opencodeOps.setModel({ ...model, agentSdk })
+          } catch (error) {
+            console.error('Failed to persist model selection for SDK:', error)
+          }
+        }
+        // Persist to app settings DB
+        const settings = extractSettings({
+          ...get(),
+          selectedModelByProvider: updated
+        } as SettingsState)
         saveToDatabase(settings)
       },
 
@@ -311,6 +371,7 @@ export const useSettingsStore = create<SettingsState>()(
         ghosttyFontSize: state.ghosttyFontSize,
         ghosttyPromotionDismissed: state.ghosttyPromotionDismissed,
         selectedModel: state.selectedModel,
+        selectedModelByProvider: state.selectedModelByProvider,
         lastOpenAction: state.lastOpenAction,
         favoriteModels: state.favoriteModels,
         customChromeCommand: state.customChromeCommand,

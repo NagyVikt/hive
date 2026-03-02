@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Check, ChevronDown, Search, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useSettingsStore } from '@/stores/useSettingsStore'
+import { useSettingsStore, resolveModelForSdk } from '@/stores/useSettingsStore'
 import { useSessionStore } from '@/stores/useSessionStore'
 import { toast } from '@/lib/toast'
 import {
@@ -53,8 +53,11 @@ export function ModelSelector({ sessionId }: ModelSelectorProps): React.JSX.Elem
     }
     return null
   })
-  const agentSdk = session?.agent_sdk ?? 'opencode'
-  const globalModel = useSettingsStore((state) => state.selectedModel)
+  const defaultAgentSdk = useSettingsStore((s) => s.defaultAgentSdk)
+  const agentSdk = session?.agent_sdk ?? defaultAgentSdk ?? 'opencode'
+  const globalModel = useSettingsStore((state) =>
+    resolveModelForSdk(agentSdk, state)
+  )
   const sessionModel =
     session?.model_id && session.model_provider_id
       ? {
@@ -64,7 +67,6 @@ export function ModelSelector({ sessionId }: ModelSelectorProps): React.JSX.Elem
         }
       : null
   const selectedModel = sessionModel ?? globalModel
-  const setSelectedModel = useSettingsStore((state) => state.setSelectedModel)
   const favoriteModels = useSettingsStore((s) => s.favoriteModels)
   const toggleFavoriteModel = useSettingsStore((s) => s.toggleFavoriteModel)
   const [providers, setProviders] = useState<ProviderModels[]>([])
@@ -153,7 +155,7 @@ export function ModelSelector({ sessionId }: ModelSelectorProps): React.JSX.Elem
     if (sessionId) {
       useSessionStore.getState().setSessionModel(sessionId, newModel)
     } else {
-      setSelectedModel(newModel)
+      useSettingsStore.getState().setSelectedModelForSdk(agentSdk, newModel)
     }
   }
 
@@ -163,7 +165,7 @@ export function ModelSelector({ sessionId }: ModelSelectorProps): React.JSX.Elem
     if (sessionId) {
       useSessionStore.getState().setSessionModel(sessionId, newModel)
     } else {
-      setSelectedModel(newModel)
+      useSettingsStore.getState().setSelectedModelForSdk(agentSdk, newModel)
     }
   }
 
@@ -209,10 +211,10 @@ export function ModelSelector({ sessionId }: ModelSelectorProps): React.JSX.Elem
     if (sessionId) {
       useSessionStore.getState().setSessionModel(sessionId, newModel)
     } else {
-      setSelectedModel(newModel)
+      useSettingsStore.getState().setSelectedModelForSdk(agentSdk, newModel)
     }
     toast.success(`Variant: ${nextVariant}`)
-  }, [selectedModel, currentModel, setSelectedModel, sessionId])
+  }, [selectedModel, currentModel, agentSdk, sessionId])
 
   // Listen for centralized Alt+T shortcut via custom event
   useEffect(() => {
