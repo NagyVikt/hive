@@ -15,9 +15,15 @@ export interface FlatFile {
   extension: string | null
 }
 
-export interface FileTreeChangeEvent {
-  worktreePath: string
-  eventType: 'add' | 'addDir' | 'unlink' | 'unlinkDir' | 'change'
+export type FileEventType = 'add' | 'addDir' | 'unlink' | 'unlinkDir' | 'change'
+
+export interface FileTreeChangeEventItem {
+  eventType: FileEventType
   changedPath: string
   relativePath: string
+}
+
+export interface FileTreeChangeEvent {
+  worktreePath: string
+  events: FileTreeChangeEventItem[]
 }
