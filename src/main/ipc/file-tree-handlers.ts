@@ -75,7 +75,8 @@ const watchers = new Map<string, chokidar.FSWatcher>()
 const debounceTimers = new Map<string, NodeJS.Timeout>()
 
 // Pending events accumulated during the debounce window, keyed by worktree path
-const pendingEvents = new Map<string, Array<{ eventType: string, changedPath: string }>>()
+type FileEventType = 'add' | 'addDir' | 'unlink' | 'unlinkDir' | 'change'
+const pendingEvents = new Map<string, Array<{ eventType: FileEventType, changedPath: string }>>()
 
 // Main window reference for sending events
 let mainWindow: BrowserWindow | null = null
@@ -260,20 +261,28 @@ export async function scanFlat(dirPath: string): Promise<FlatFileEntry[]> {
   }))
 }
 
+function isAddLike(eventType: FileEventType): boolean {
+  return eventType === 'add' || eventType === 'addDir'
+}
+
+function isUnlinkLike(eventType: FileEventType): boolean {
+  return eventType === 'unlink' || eventType === 'unlinkDir'
+}
+
 /**
  * Deduplicate accumulated events for a single worktree.
  *
  * Rules (applied per changedPath):
- *  - add + change  → keep only add
- *  - add + unlink  → remove both (cancel out)
- *  - unlink + add  → keep only add (recreated)
- *  - multiple change → keep only one change
+ *  - add-like + change    → keep only add-like
+ *  - add-like + unlink-like → remove both (cancel out)
+ *  - unlink-like + add-like → keep only add-like (recreated)
+ *  - multiple change      → keep only one change
  */
 function deduplicateEvents(
-  events: Array<{ eventType: string, changedPath: string }>
-): Array<{ eventType: string, changedPath: string }> {
+  events: Array<{ eventType: FileEventType, changedPath: string }>
+): Array<{ eventType: FileEventType, changedPath: string }> {
   // Walk the list in order and collapse per-path
-  const byPath = new Map<string, string>() // changedPath → final eventType
+  const byPath = new Map<string, FileEventType>() // changedPath → final eventType
   const order: string[] = [] // insertion-order of first appearance
 
   for (const { eventType, changedPath } of events) {
@@ -285,18 +294,18 @@ function deduplicateEvents(
       continue
     }
 
-    // add then change → keep add (change is redundant after creation)
-    if (existing === 'add' && eventType === 'change') continue
+    // add-like then change → keep add-like (change is redundant after creation)
+    if (isAddLike(existing) && eventType === 'change') continue
 
-    // add then unlink → cancel out
-    if (existing === 'add' && eventType === 'unlink') {
+    // add-like then unlink-like → cancel out
+    if (isAddLike(existing) && isUnlinkLike(eventType)) {
       byPath.delete(changedPath)
       continue
     }
 
-    // unlink then add → file was recreated, keep add
-    if (existing === 'unlink' && eventType === 'add') {
-      byPath.set(changedPath, 'add')
+    // unlink-like then add-like → recreated, keep add-like
+    if (isUnlinkLike(existing) && isAddLike(eventType)) {
+      byPath.set(changedPath, eventType)
       continue
     }
 
@@ -308,7 +317,7 @@ function deduplicateEvents(
   }
 
   // Rebuild in original insertion order, skipping deleted entries
-  const result: Array<{ eventType: string, changedPath: string }> = []
+  const result: Array<{ eventType: FileEventType, changedPath: string }> = []
   for (const changedPath of order) {
     const eventType = byPath.get(changedPath)
     if (eventType !== undefined) {
@@ -325,7 +334,7 @@ function deduplicateEvents(
  * The IPC payload carries `events: Array<{ eventType, changedPath, relativePath }>`.
  * The EventBus still emits one event per accumulated item for backward compat.
  */
-function emitFileTreeChange(worktreePath: string, eventType: string, changedPath: string): void {
+function emitFileTreeChange(worktreePath: string, eventType: FileEventType, changedPath: string): void {
   if (!mainWindow) return
 
   // Accumulate the event
