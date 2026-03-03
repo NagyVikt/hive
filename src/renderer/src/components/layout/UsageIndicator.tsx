@@ -100,7 +100,7 @@ export function UsageIndicator(): React.JSX.Element | null {
             {extra?.is_enabled && (
               <div className="border-t border-background/20 pt-1 text-[10px]">
                 Extra: ${extra.used_credits.toFixed(2)} / ${extra.monthly_limit.toFixed(2)} used
-                ({Math.round(extra.utilization * 100)}%)
+                ({Math.round(extra.utilization)}%)
               </div>
             )}
           </div>

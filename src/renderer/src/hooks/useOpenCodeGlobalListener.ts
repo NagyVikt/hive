@@ -8,6 +8,7 @@ import { usePermissionStore } from '@/stores/usePermissionStore'
 import { useContextStore } from '@/stores/useContextStore'
 import { useRecentStore } from '@/stores/useRecentStore'
 import { useUsageStore } from '@/stores'
+import { useSettingsStore } from '@/stores/useSettingsStore'
 import { extractTokens, extractCost, extractModelRef, extractModelUsage } from '@/lib/token-utils'
 import { COMPLETION_WORDS } from '@/lib/format-utils'
 import { messageSendTimes } from '@/lib/message-send-times'
@@ -370,7 +371,9 @@ export function useOpenCodeGlobalListener(): void {
 
           if (status?.type !== 'idle') return
 
-          useUsageStore.getState().fetchUsage()
+          if (useSettingsStore.getState().showUsageIndicator) {
+            useUsageStore.getState().fetchUsage()
+          }
 
           // Don't overwrite plan_ready — session is blocked waiting for plan approval
           if (useSessionStore.getState().getPendingPlan(sessionId)) return

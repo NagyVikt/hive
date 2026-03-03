@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useLayoutStore } from '@/stores/useLayoutStore'
 import { useProjectStore, useConnectionStore } from '@/stores'
+import { useSettingsStore } from '@/stores/useSettingsStore'
 import { ResizeHandle } from './ResizeHandle'
 import { FolderGit2, Link, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,7 @@ import {
   RecentToggleButton
 } from '@/components/projects'
 import { ConnectionList } from '@/components/connections'
+import { SpacesTabBar } from '@/components/spaces'
 import { UsageIndicator } from './UsageIndicator'
 import { PinnedList } from './PinnedList'
 import { RecentList } from './RecentList'
@@ -18,6 +20,7 @@ import { RecentList } from './RecentList'
 export function LeftSidebar(): React.JSX.Element {
   const { leftSidebarWidth, leftSidebarCollapsed, setLeftSidebarWidth } = useLayoutStore()
   const expandAllProjects = useProjectStore((s) => s.expandAllProjects)
+  const showUsageIndicator = useSettingsStore((s) => s.showUsageIndicator)
 
   // Connection mode state
   const connectionModeActive = useConnectionStore((s) => s.connectionModeActive)
@@ -140,7 +143,9 @@ export function LeftSidebar(): React.JSX.Element {
           <ConnectionList />
           <ProjectList onAddProject={handleAddProject} />
         </div>
-        {!connectionModeActive && <UsageIndicator />}
+        {!connectionModeActive && (
+          showUsageIndicator ? <UsageIndicator /> : <SpacesTabBar />
+        )}
       </aside>
       <ResizeHandle onResize={handleResize} direction="left" />
     </div>

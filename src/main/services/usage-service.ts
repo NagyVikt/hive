@@ -4,25 +4,11 @@ import { execFile } from 'child_process'
 import { join } from 'path'
 import { homedir, platform } from 'os'
 import { createLogger } from './logger'
+import type { UsageData, UsageResult } from '@shared/types/usage'
+
+export type { UsageData, UsageResult }
 
 const log = createLogger({ component: 'UsageService' })
-
-export interface UsageData {
-  five_hour: { utilization: number; resets_at: string }
-  seven_day: { utilization: number; resets_at: string }
-  extra_usage?: {
-    is_enabled: boolean
-    utilization: number
-    used_credits: number
-    monthly_limit: number
-  }
-}
-
-interface UsageResult {
-  success: boolean
-  data?: UsageData
-  error?: string
-}
 
 /**
  * Read the OAuth access token from macOS Keychain.
