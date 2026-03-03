@@ -70,6 +70,10 @@ const deserializeExpandedPaths = (data: [string, string[]][]): Map<string, Set<s
 // Module-level map for onChange unsubscribe functions (not serializable, so outside persist store)
 const watchUnsubscribers = new Map<string, () => void>()
 
+// When a batch of file-change events exceeds this threshold (e.g. branch switch,
+// npm install), skip incremental index updates and do a full re-scan instead.
+const FULL_RESCAN_THRESHOLD = 20
+
 export const useFileTreeStore = create<FileTreeState>()(
   persist(
     (set, get) => ({
@@ -310,6 +314,13 @@ export const useFileTreeStore = create<FileTreeState>()(
       ) => {
         // Refresh the tree display once (not per-event)
         await get().refreshFileTree(worktreePath)
+
+        // For large batches (branch switch, npm install, etc.), skip incremental
+        // updates and do a full re-scan — safer than processing hundreds of events.
+        if (events.length > FULL_RESCAN_THRESHOLD) {
+          await get().loadFileIndex(worktreePath)
+          return
+        }
 
         // Incrementally update the flat file index by processing all events in sequence
         set((state) => {
