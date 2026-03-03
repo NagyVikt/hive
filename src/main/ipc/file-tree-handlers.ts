@@ -74,6 +74,9 @@ const watchers = new Map<string, chokidar.FSWatcher>()
 // Debounce timers by worktree path
 const debounceTimers = new Map<string, NodeJS.Timeout>()
 
+// Pending events accumulated during the debounce window, keyed by worktree path
+const pendingEvents = new Map<string, Array<{ eventType: string, changedPath: string }>>()
+
 // Main window reference for sending events
 let mainWindow: BrowserWindow | null = null
 
@@ -258,12 +261,82 @@ export async function scanFlat(dirPath: string): Promise<FlatFileEntry[]> {
 }
 
 /**
- * Emit debounced file tree change event to renderer
+ * Deduplicate accumulated events for a single worktree.
+ *
+ * Rules (applied per changedPath):
+ *  - add + change  → keep only add
+ *  - add + unlink  → remove both (cancel out)
+ *  - unlink + add  → keep only add (recreated)
+ *  - multiple change → keep only one change
+ */
+function deduplicateEvents(
+  events: Array<{ eventType: string, changedPath: string }>
+): Array<{ eventType: string, changedPath: string }> {
+  // Walk the list in order and collapse per-path
+  const byPath = new Map<string, string>() // changedPath → final eventType
+  const order: string[] = [] // insertion-order of first appearance
+
+  for (const { eventType, changedPath } of events) {
+    const existing = byPath.get(changedPath)
+
+    if (existing === undefined) {
+      byPath.set(changedPath, eventType)
+      order.push(changedPath)
+      continue
+    }
+
+    // add then change → keep add (change is redundant after creation)
+    if (existing === 'add' && eventType === 'change') continue
+
+    // add then unlink → cancel out
+    if (existing === 'add' && eventType === 'unlink') {
+      byPath.delete(changedPath)
+      continue
+    }
+
+    // unlink then add → file was recreated, keep add
+    if (existing === 'unlink' && eventType === 'add') {
+      byPath.set(changedPath, 'add')
+      continue
+    }
+
+    // multiple change → keep one
+    if (existing === 'change' && eventType === 'change') continue
+
+    // For any other combination, last event wins
+    byPath.set(changedPath, eventType)
+  }
+
+  // Rebuild in original insertion order, skipping deleted entries
+  const result: Array<{ eventType: string, changedPath: string }> = []
+  for (const changedPath of order) {
+    const eventType = byPath.get(changedPath)
+    if (eventType !== undefined) {
+      result.push({ eventType, changedPath })
+    }
+  }
+  return result
+}
+
+/**
+ * Emit debounced file tree change event to renderer.
+ *
+ * Events are accumulated during the debounce window and sent as a batch.
+ * The IPC payload carries `events: Array<{ eventType, changedPath, relativePath }>`.
+ * The EventBus still emits one event per accumulated item for backward compat.
  */
 function emitFileTreeChange(worktreePath: string, eventType: string, changedPath: string): void {
   if (!mainWindow) return
 
-  // Clear existing debounce timer
+  // Accumulate the event
+  let queue = pendingEvents.get(worktreePath)
+  if (!queue) {
+    queue = []
+    pendingEvents.set(worktreePath, queue)
+  }
+  queue.push({ eventType, changedPath })
+
+  // Reset the debounce timer
   const existingTimer = debounceTimers.get(worktreePath)
   if (existingTimer) {
     clearTimeout(existingTimer)
@@ -272,15 +345,29 @@ function emitFileTreeChange(worktreePath: string, eventType: string, changedPath
   // Set new debounce timer (100ms as per requirements)
   const timer = setTimeout(() => {
     debounceTimers.delete(worktreePath)
-    const payload = {
-      worktreePath,
-      eventType,
-      changedPath,
-      relativePath: relative(worktreePath, changedPath)
-    }
+    const raw = pendingEvents.get(worktreePath) ?? []
+    pendingEvents.delete(worktreePath)
+
+    const deduped = deduplicateEvents(raw)
+    if (deduped.length === 0) return
+
+    const events = deduped.map(({ eventType: et, changedPath: cp }) => ({
+      eventType: et,
+      changedPath: cp,
+      relativePath: relative(worktreePath, cp)
+    }))
+
+    const payload = { worktreePath, events }
     mainWindow?.webContents.send('file-tree:change', payload)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    try { getEventBus().emit('file-tree:change', payload as any) } catch { /* EventBus not available */ }
+
+    // EventBus: emit individual events for backward compat with GraphQL subscribers
+    try {
+      const bus = getEventBus()
+      for (const evt of events) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        bus.emit('file-tree:change', { worktreePath, ...evt } as any)
+      }
+    } catch { /* EventBus not available */ }
   }, 100)
 
   debounceTimers.set(worktreePath, timer)
@@ -507,12 +594,13 @@ export function registerFileTreeHandlers(window: BrowserWindow): void {
           watchers.delete(worktreePath)
         }
 
-        // Clear any pending debounce timer
+        // Clear any pending debounce timer and accumulated events
         const timer = debounceTimers.get(worktreePath)
         if (timer) {
           clearTimeout(timer)
           debounceTimers.delete(worktreePath)
         }
+        pendingEvents.delete(worktreePath)
 
         return { success: true }
       } catch (error) {
@@ -543,9 +631,10 @@ export async function cleanupFileTreeWatchers(): Promise<void> {
   }
   watchers.clear()
 
-  // Clear all debounce timers
+  // Clear all debounce timers and pending events
   for (const timer of debounceTimers.values()) {
     clearTimeout(timer)
   }
   debounceTimers.clear()
+  pendingEvents.clear()
 }
