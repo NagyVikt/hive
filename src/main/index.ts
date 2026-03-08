@@ -35,6 +35,7 @@ import { createResponseLog, appendResponseLog } from './services/response-logger
 import { notificationService } from './services/notification-service'
 import { updaterService } from './services/updater'
 import { ClaudeCodeImplementer } from './services/claude-code-implementer'
+import { CodexImplementer } from './services/codex-implementer'
 import { AgentSdkManager } from './services/agent-sdk-manager'
 import { resolveClaudeBinaryPath } from './services/claude-binary-resolver'
 import type { AgentSdkImplementer } from './services/agent-sdk-types'
@@ -512,7 +513,8 @@ app.whenReady().then(async () => {
       renameSession: async () => {},
       setMainWindow: () => {}
     } satisfies AgentSdkImplementer
-    const sdkManager = new AgentSdkManager([openCodePlaceholder, claudeImpl])
+    const codexImpl = new CodexImplementer()
+    const sdkManager = new AgentSdkManager([openCodePlaceholder, claudeImpl, codexImpl])
     sdkManager.setMainWindow(mainWindow)
 
     const databaseService = getDatabase()

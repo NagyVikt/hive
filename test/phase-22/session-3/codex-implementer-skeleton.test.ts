@@ -1,0 +1,296 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+
+// Mock logger
+vi.mock('../../../src/main/services/logger', () => ({
+  createLogger: () => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn()
+  })
+}))
+
+import { CodexImplementer } from '../../../src/main/services/codex-implementer'
+import { CODEX_CAPABILITIES } from '../../../src/main/services/agent-sdk-types'
+import { CODEX_DEFAULT_MODEL, CODEX_MODELS } from '../../../src/main/services/codex-models'
+
+describe('CodexImplementer skeleton', () => {
+  let impl: CodexImplementer
+
+  beforeEach(() => {
+    impl = new CodexImplementer()
+  })
+
+  // ── Identity & capabilities ────────────────────────────────────
+
+  describe('identity', () => {
+    it('has id "codex"', () => {
+      expect(impl.id).toBe('codex')
+    })
+
+    it('has CODEX_CAPABILITIES', () => {
+      expect(impl.capabilities).toEqual(CODEX_CAPABILITIES)
+    })
+
+    it('supportsUndo is true', () => {
+      expect(impl.capabilities.supportsUndo).toBe(true)
+    })
+
+    it('supportsRedo is false', () => {
+      expect(impl.capabilities.supportsRedo).toBe(false)
+    })
+
+    it('supportsCommands is false', () => {
+      expect(impl.capabilities.supportsCommands).toBe(false)
+    })
+
+    it('supportsModelSelection is true', () => {
+      expect(impl.capabilities.supportsModelSelection).toBe(true)
+    })
+  })
+
+  // ── Model methods (implemented) ────────────────────────────────
+
+  describe('getAvailableModels', () => {
+    it('returns array with codex provider', async () => {
+      const result = (await impl.getAvailableModels()) as any[]
+      expect(result).toHaveLength(1)
+      expect(result[0].id).toBe('codex')
+    })
+
+    it('provider contains all 5 models', async () => {
+      const result = (await impl.getAvailableModels()) as any[]
+      const models = result[0].models
+      expect(Object.keys(models)).toHaveLength(5)
+    })
+  })
+
+  describe('getModelInfo', () => {
+    it('returns info for a known model', async () => {
+      const info = await impl.getModelInfo('/path', 'gpt-5.4')
+      expect(info).not.toBeNull()
+      expect(info!.id).toBe('gpt-5.4')
+      expect(info!.name).toBe('GPT-5.4')
+    })
+
+    it('returns null for unknown model', async () => {
+      const info = await impl.getModelInfo('/path', 'unknown')
+      expect(info).toBeNull()
+    })
+  })
+
+  // ── setSelectedModel ───────────────────────────────────────────
+
+  describe('setSelectedModel', () => {
+    it('stores the model selection', () => {
+      impl.setSelectedModel({ providerID: 'codex', modelID: 'gpt-5.3-codex' })
+      expect(impl.getSelectedModel()).toBe('gpt-5.3-codex')
+    })
+
+    it('stores the variant selection', () => {
+      impl.setSelectedModel({ providerID: 'codex', modelID: 'gpt-5.4', variant: 'xhigh' })
+      expect(impl.getSelectedVariant()).toBe('xhigh')
+    })
+
+    it('defaults to gpt-5.4 before any selection', () => {
+      expect(impl.getSelectedModel()).toBe(CODEX_DEFAULT_MODEL)
+    })
+  })
+
+  // ── setMainWindow ──────────────────────────────────────────────
+
+  describe('setMainWindow', () => {
+    it('stores the window reference', () => {
+      const mockWindow = { webContents: { send: vi.fn() } } as any
+      impl.setMainWindow(mockWindow)
+      expect(impl.getMainWindow()).toBe(mockWindow)
+    })
+  })
+
+  // ── cleanup ────────────────────────────────────────────────────
+
+  describe('cleanup', () => {
+    it('clears mainWindow', async () => {
+      const mockWindow = { webContents: { send: vi.fn() } } as any
+      impl.setMainWindow(mockWindow)
+
+      await impl.cleanup()
+      expect(impl.getMainWindow()).toBeNull()
+    })
+
+    it('resets selected model to default', async () => {
+      impl.setSelectedModel({ providerID: 'codex', modelID: 'gpt-5.3-codex', variant: 'low' })
+
+      await impl.cleanup()
+      expect(impl.getSelectedModel()).toBe(CODEX_DEFAULT_MODEL)
+      expect(impl.getSelectedVariant()).toBeUndefined()
+    })
+
+    it('does not throw', async () => {
+      await expect(impl.cleanup()).resolves.toBeUndefined()
+    })
+  })
+
+  // ── Unimplemented lifecycle methods throw ──────────────────────
+
+  describe('unimplemented lifecycle methods throw descriptive errors', () => {
+    it('connect throws', async () => {
+      await expect(impl.connect('/path', 'session-1')).rejects.toThrow(
+        'CodexImplementer.connect() not yet implemented'
+      )
+    })
+
+    it('reconnect throws', async () => {
+      await expect(impl.reconnect('/path', 'agent-1', 'hive-1')).rejects.toThrow(
+        'CodexImplementer.reconnect() not yet implemented'
+      )
+    })
+
+    it('disconnect throws', async () => {
+      await expect(impl.disconnect('/path', 'agent-1')).rejects.toThrow(
+        'CodexImplementer.disconnect() not yet implemented'
+      )
+    })
+  })
+
+  // ── Unimplemented messaging methods throw ──────────────────────
+
+  describe('unimplemented messaging methods throw descriptive errors', () => {
+    it('prompt throws', async () => {
+      await expect(impl.prompt('/path', 'session-1', 'hello')).rejects.toThrow(
+        'CodexImplementer.prompt() not yet implemented'
+      )
+    })
+
+    it('abort throws', async () => {
+      await expect(impl.abort('/path', 'session-1')).rejects.toThrow(
+        'CodexImplementer.abort() not yet implemented'
+      )
+    })
+
+    it('getMessages throws', async () => {
+      await expect(impl.getMessages('/path', 'session-1')).rejects.toThrow(
+        'CodexImplementer.getMessages() not yet implemented'
+      )
+    })
+  })
+
+  // ── Unimplemented session info methods throw ───────────────────
+
+  describe('unimplemented session info methods throw descriptive errors', () => {
+    it('getSessionInfo throws', async () => {
+      await expect(impl.getSessionInfo('/path', 'session-1')).rejects.toThrow(
+        'CodexImplementer.getSessionInfo() not yet implemented'
+      )
+    })
+
+    it('renameSession throws', async () => {
+      await expect(impl.renameSession('/path', 'session-1', 'new name')).rejects.toThrow(
+        'CodexImplementer.renameSession() not yet implemented'
+      )
+    })
+  })
+
+  // ── Unimplemented human-in-the-loop methods throw ──────────────
+
+  describe('unimplemented human-in-the-loop methods throw descriptive errors', () => {
+    it('questionReply throws', async () => {
+      await expect(impl.questionReply('req-1', [['answer']])).rejects.toThrow(
+        'CodexImplementer.questionReply() not yet implemented'
+      )
+    })
+
+    it('questionReject throws', async () => {
+      await expect(impl.questionReject('req-1')).rejects.toThrow(
+        'CodexImplementer.questionReject() not yet implemented'
+      )
+    })
+
+    it('permissionReply throws', async () => {
+      await expect(impl.permissionReply('req-1', 'once')).rejects.toThrow(
+        'CodexImplementer.permissionReply() not yet implemented'
+      )
+    })
+
+    it('permissionList throws', async () => {
+      await expect(impl.permissionList()).rejects.toThrow(
+        'CodexImplementer.permissionList() not yet implemented'
+      )
+    })
+  })
+
+  // ── Unimplemented undo/redo methods throw ──────────────────────
+
+  describe('unimplemented undo/redo methods throw descriptive errors', () => {
+    it('undo throws', async () => {
+      await expect(impl.undo('/path', 'session-1', 'hive-1')).rejects.toThrow(
+        'CodexImplementer.undo() not yet implemented'
+      )
+    })
+
+    it('redo throws', async () => {
+      await expect(impl.redo('/path', 'session-1', 'hive-1')).rejects.toThrow(
+        'CodexImplementer.redo() not yet implemented'
+      )
+    })
+  })
+
+  // ── Unimplemented command methods throw ─────────────────────────
+
+  describe('unimplemented command methods throw descriptive errors', () => {
+    it('listCommands throws', async () => {
+      await expect(impl.listCommands('/path')).rejects.toThrow(
+        'CodexImplementer.listCommands() not yet implemented'
+      )
+    })
+
+    it('sendCommand throws', async () => {
+      await expect(impl.sendCommand('/path', 'session-1', '/help')).rejects.toThrow(
+        'CodexImplementer.sendCommand() not yet implemented'
+      )
+    })
+  })
+
+  // ── Implements AgentSdkImplementer interface ───────────────────
+
+  describe('interface compliance', () => {
+    it('has all required methods', () => {
+      const requiredMethods = [
+        'connect',
+        'reconnect',
+        'disconnect',
+        'cleanup',
+        'prompt',
+        'abort',
+        'getMessages',
+        'getAvailableModels',
+        'getModelInfo',
+        'setSelectedModel',
+        'getSessionInfo',
+        'questionReply',
+        'questionReject',
+        'permissionReply',
+        'permissionList',
+        'undo',
+        'redo',
+        'listCommands',
+        'sendCommand',
+        'renameSession',
+        'setMainWindow'
+      ]
+
+      for (const method of requiredMethods) {
+        expect(typeof (impl as any)[method]).toBe('function')
+      }
+    })
+
+    it('has id property set to codex', () => {
+      expect(impl.id).toBe('codex')
+    })
+
+    it('has readonly capabilities property', () => {
+      expect(impl.capabilities).toBeDefined()
+    })
+  })
+})
