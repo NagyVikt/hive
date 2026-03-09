@@ -574,6 +574,12 @@ function PinnedWorktreeItem({ worktreeId }: { worktreeId: string }): React.JSX.E
                     // Re-focus only if focus didn't move to another interactive element
                     setTimeout(() => {
                       const activeEl = document.activeElement
+
+                      // Don't check if the rename input itself has focus
+                      if (activeEl === renameInputRef.current) {
+                        return
+                      }
+
                       const isInteractive =
                         activeEl instanceof HTMLInputElement ||
                         activeEl instanceof HTMLButtonElement ||
@@ -587,7 +593,7 @@ function PinnedWorktreeItem({ worktreeId }: { worktreeId: string }): React.JSX.E
                       }
 
                       // Otherwise re-focus (likely menu close blur)
-                      if (renameInputRef.current && isRenamingBranch) {
+                      if (renameInputRef.current) {
                         renameInputRef.current.focus()
                         renameInputRef.current.select()
                       }
@@ -962,6 +968,12 @@ function PinnedConnectionItem({
                     // Re-focus only if focus didn't move to another interactive element
                     setTimeout(() => {
                       const activeEl = document.activeElement
+
+                      // Don't check if the rename input itself has focus
+                      if (activeEl === renameInputRef.current) {
+                        return
+                      }
+
                       const isInteractive =
                         activeEl instanceof HTMLInputElement ||
                         activeEl instanceof HTMLButtonElement ||
@@ -975,7 +987,7 @@ function PinnedConnectionItem({
                       }
 
                       // Otherwise re-focus (likely menu close blur)
-                      if (renameInputRef.current && isRenaming) {
+                      if (renameInputRef.current) {
                         renameInputRef.current.focus()
                         renameInputRef.current.select()
                       }

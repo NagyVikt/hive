@@ -349,6 +349,12 @@ export function ConnectionItem({
                     // Re-focus only if focus didn't move to another interactive element
                     setTimeout(() => {
                       const activeEl = document.activeElement
+
+                      // Don't check if the rename input itself has focus
+                      if (activeEl === renameInputRef.current) {
+                        return
+                      }
+
                       const isInteractive =
                         activeEl instanceof HTMLInputElement ||
                         activeEl instanceof HTMLButtonElement ||
@@ -362,7 +368,7 @@ export function ConnectionItem({
                       }
 
                       // Otherwise re-focus (likely menu close blur)
-                      if (renameInputRef.current && isRenaming) {
+                      if (renameInputRef.current) {
                         renameInputRef.current.focus()
                         renameInputRef.current.select()
                       }
