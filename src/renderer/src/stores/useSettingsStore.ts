@@ -74,7 +74,7 @@ export interface AppSettings {
   showUsageIndicator: boolean
 
   // Agent SDK
-  defaultAgentSdk: 'opencode' | 'claude-code' | 'terminal' | 'codex'
+  defaultAgentSdk: 'opencode' | 'claude-code' | 'terminal'
 
   // Setup
   initialSetupComplete: boolean
@@ -84,7 +84,6 @@ export interface AppSettings {
 
   // Updates
   updateChannel: 'stable' | 'canary'
-  skippedUpdateVersion: string | null
 
   // Command Filter
   commandFilter: CommandFilterSettings
@@ -115,7 +114,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   defaultAgentSdk: 'opencode',
   stripAtMentions: true,
   updateChannel: 'stable',
-  skippedUpdateVersion: null,
   initialSetupComplete: false,
   commandFilter: {
     allowlist: ['edit: **', 'write: **'],
@@ -142,7 +140,7 @@ interface SettingsState extends AppSettings {
   isLoading: boolean
 
   // Cached SDK availability (non-persisted, re-detected each launch)
-  availableAgentSdks: { opencode: boolean; claude: boolean; codex: boolean } | null
+  availableAgentSdks: { opencode: boolean; claude: boolean } | null
 
   // Actions
   openSettings: (section?: string) => void
@@ -223,7 +221,6 @@ function extractSettings(state: SettingsState): AppSettings {
     defaultAgentSdk: state.defaultAgentSdk,
     stripAtMentions: state.stripAtMentions,
     updateChannel: state.updateChannel,
-    skippedUpdateVersion: state.skippedUpdateVersion,
     initialSetupComplete: state.initialSetupComplete,
     commandFilter: state.commandFilter,
     telemetryEnabled: state.telemetryEnabled
@@ -283,7 +280,10 @@ export const useSettingsStore = create<SettingsState>()(
         }
       },
 
-      setSelectedModel: async (model: SelectedModel, agentSdk?: AppSettings['defaultAgentSdk']) => {
+      setSelectedModel: async (
+        model: SelectedModel,
+        agentSdk?: AppSettings['defaultAgentSdk']
+      ) => {
         if (agentSdk) {
           return get().setSelectedModelForSdk(agentSdk, model)
         }
@@ -403,7 +403,6 @@ export const useSettingsStore = create<SettingsState>()(
         activeSection: state.activeSection,
         stripAtMentions: state.stripAtMentions,
         updateChannel: state.updateChannel,
-        skippedUpdateVersion: state.skippedUpdateVersion,
         initialSetupComplete: state.initialSetupComplete,
         commandFilter: state.commandFilter,
         telemetryEnabled: state.telemetryEnabled

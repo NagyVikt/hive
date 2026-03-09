@@ -23,11 +23,9 @@ function getUpdateChannel(): 'stable' | 'canary' {
 const CHECK_INTERVAL = 4 * 60 * 60 * 1000 // 4 hours
 const INITIAL_DELAY = 10 * 1000 // 10 seconds
 
-autoUpdater.autoDownload = false
+autoUpdater.autoDownload = true
 autoUpdater.autoInstallOnAppQuit = true
 autoUpdater.logger = null
-
-let isManualCheck = false
 
 export const updaterService = {
   init(mainWindow: BrowserWindow): void {
@@ -48,23 +46,19 @@ export const updaterService = {
     })
 
     autoUpdater.on('update-available', (info) => {
-      log.info('Update available', { version: info.version, isManualCheck })
+      log.info('Update available', { version: info.version })
       mainWindow.webContents.send('updater:available', {
         version: info.version,
         releaseNotes: info.releaseNotes,
-        releaseDate: info.releaseDate,
-        isManualCheck
+        releaseDate: info.releaseDate
       })
-      isManualCheck = false
     })
 
     autoUpdater.on('update-not-available', (info) => {
-      log.info('No update available', { version: info.version, isManualCheck })
+      log.info('No update available', { version: info.version })
       mainWindow.webContents.send('updater:not-available', {
-        version: info.version,
-        isManualCheck
+        version: info.version
       })
-      isManualCheck = false
     })
 
     autoUpdater.on('download-progress', (progress) => {
@@ -88,10 +82,8 @@ export const updaterService = {
     autoUpdater.on('error', (error) => {
       log.error('Update error', error)
       mainWindow.webContents.send('updater:error', {
-        message: error?.message ?? String(error),
-        isManualCheck
+        message: error?.message ?? String(error)
       })
-      isManualCheck = false
     })
 
     setTimeout(() => {
@@ -103,9 +95,8 @@ export const updaterService = {
     }, CHECK_INTERVAL)
   },
 
-  async checkForUpdates(options?: { manual?: boolean }): Promise<void> {
+  async checkForUpdates(): Promise<void> {
     try {
-      isManualCheck = options?.manual ?? false
       await autoUpdater.checkForUpdates()
     } catch (error) {
       log.error(
@@ -135,7 +126,7 @@ export const updaterService = {
     autoUpdater.allowPrerelease = channel === 'canary'
     autoUpdater.allowDowngrade = true // allow downgrade on explicit channel switch
     log.info('Update channel changed', { channel })
-    this.checkForUpdates({ manual: true })
+    this.checkForUpdates()
   },
 
   getVersion(): string {

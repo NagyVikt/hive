@@ -318,7 +318,8 @@ export const opencodeMutationResolvers: Resolvers = {
         await withSdkDispatch(
           ctx,
           opencodeSessionId,
-          () => openCodeService.renameSession(opencodeSessionId, title, worktreePath ?? undefined),
+          () =>
+            openCodeService.renameSession(opencodeSessionId, title, worktreePath ?? undefined),
           (impl) => impl.renameSession(worktreePath ?? '', opencodeSessionId, title)
         )
         return { success: true }
@@ -328,6 +329,6 @@ export const opencodeMutationResolvers: Resolvers = {
           error: error instanceof Error ? error.message : 'Unknown error'
         }
       }
-    }
+    },
   }
 }

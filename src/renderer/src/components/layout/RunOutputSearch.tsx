@@ -23,7 +23,10 @@ interface RunOutputSearchProps {
   onClose: () => void
 }
 
-function searchBuffer(buffer: OutputRingBuffer, query: string): RunSearchMatch[] {
+function searchBuffer(
+  buffer: OutputRingBuffer,
+  query: string
+): RunSearchMatch[] {
   if (!query) return []
 
   const lowerQuery = query.toLowerCase()
@@ -99,7 +102,9 @@ export function RunOutputSearch({
       // Preserve position when re-searching (e.g. new output arrived).
       // Clamp to bounds, fall back to 0 if matches shrank.
       const prevIndex = currentIndexRef.current
-      const newIndex = found.length > 0 ? Math.min(prevIndex, found.length - 1) : 0
+      const newIndex = found.length > 0
+        ? Math.min(prevIndex, found.length - 1)
+        : 0
       setCurrentIndex(newIndex)
       onMatchesChangeRef.current(found, newIndex)
     }, 150)

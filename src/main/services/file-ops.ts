@@ -56,7 +56,10 @@ export function readPromptFile(promptName: string): {
   }
 }
 
-export function writeFile(filePath: string, content: string): { success: boolean; error?: string } {
+export function writeFile(
+  filePath: string,
+  content: string
+): { success: boolean; error?: string } {
   try {
     writeFileSync(filePath, content, 'utf-8')
     return { success: true }

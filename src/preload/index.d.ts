@@ -75,7 +75,7 @@ interface Session {
   name: string | null
   status: 'active' | 'completed' | 'error'
   opencode_session_id: string | null
-  agent_sdk: 'opencode' | 'claude-code' | 'terminal' | 'codex'
+  agent_sdk: 'opencode' | 'claude-code' | 'terminal'
   mode: 'build' | 'plan'
   model_provider_id: string | null
   model_id: string | null
@@ -226,7 +226,7 @@ declare global {
           connection_id?: string | null
           name?: string | null
           opencode_session_id?: string | null
-          agent_sdk?: 'opencode' | 'claude-code' | 'terminal' | 'codex'
+          agent_sdk?: 'opencode' | 'claude-code' | 'terminal'
           model_provider_id?: string | null
           model_id?: string | null
           model_variant?: string | null
@@ -241,7 +241,7 @@ declare global {
             name?: string | null
             status?: 'active' | 'completed' | 'error'
             opencode_session_id?: string | null
-            agent_sdk?: 'opencode' | 'claude-code' | 'terminal' | 'codex'
+            agent_sdk?: 'opencode' | 'claude-code' | 'terminal'
             mode?: 'build' | 'plan'
             model_provider_id?: string | null
             model_id?: string | null
@@ -395,7 +395,7 @@ declare global {
         logs: string
       }>
       isLogMode: () => Promise<boolean>
-      detectAgentSdks: () => Promise<{ opencode: boolean; claude: boolean; codex: boolean }>
+      detectAgentSdks: () => Promise<{ opencode: boolean; claude: boolean }>
       quitApp: () => Promise<void>
       openInApp: (appName: string, path: string) => Promise<{ success: boolean; error?: string }>
       openInChrome: (
@@ -464,7 +464,7 @@ declare global {
         opencodeSessionId: string
       ) => Promise<{ success: boolean; messages: unknown[]; error?: string }>
       // List available models from all configured providers
-      listModels: (opts?: { agentSdk?: 'opencode' | 'claude-code' | 'terminal' | 'codex' }) => Promise<{
+      listModels: (opts?: { agentSdk?: 'opencode' | 'claude-code' | 'terminal' }) => Promise<{
         success: boolean
         providers: Record<string, unknown>
         error?: string
@@ -474,13 +474,13 @@ declare global {
         providerID: string
         modelID: string
         variant?: string
-        agentSdk?: 'opencode' | 'claude-code' | 'terminal' | 'codex'
+        agentSdk?: 'opencode' | 'claude-code' | 'terminal'
       }) => Promise<{ success: boolean; error?: string }>
       // Get model info (name, context limit)
       modelInfo: (
         worktreePath: string,
         modelId: string,
-        agentSdk?: 'opencode' | 'claude-code' | 'terminal' | 'codex'
+        agentSdk?: 'opencode' | 'claude-code' | 'terminal'
       ) => Promise<{
         success: boolean
         model?: { id: string; name: string; limit: { context: number } }
@@ -1019,23 +1019,16 @@ declare global {
       }>
     }
     updaterOps: {
-      checkForUpdate: (options?: { manual?: boolean }) => Promise<void>
+      checkForUpdate: () => Promise<void>
       downloadUpdate: () => Promise<void>
       installUpdate: () => Promise<void>
       setChannel: (channel: string) => Promise<void>
       getVersion: () => Promise<string>
       onChecking: (callback: () => void) => () => void
       onUpdateAvailable: (
-        callback: (data: {
-          version: string
-          releaseNotes?: string
-          releaseDate?: string
-          isManualCheck?: boolean
-        }) => void
+        callback: (data: { version: string; releaseNotes?: string; releaseDate?: string }) => void
       ) => () => void
-      onUpdateNotAvailable: (
-        callback: (data: { version: string; isManualCheck?: boolean }) => void
-      ) => () => void
+      onUpdateNotAvailable: (callback: (data: { version: string }) => void) => () => void
       onProgress: (
         callback: (data: {
           percent: number
@@ -1047,9 +1040,7 @@ declare global {
       onUpdateDownloaded: (
         callback: (data: { version: string; releaseNotes?: string }) => void
       ) => () => void
-      onError: (
-        callback: (data: { message: string; isManualCheck?: boolean }) => void
-      ) => () => void
+      onError: (callback: (data: { message: string }) => void) => () => void
     }
     connectionOps: {
       create: (

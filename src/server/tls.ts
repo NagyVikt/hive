@@ -13,7 +13,10 @@ export function generateTlsCerts(outputDir: string): void {
   mkdirSync(outputDir, { recursive: true })
 
   // Generate ECDSA P-256 private key
-  execSync(`openssl ecparam -genkey -name prime256v1 -noout -out "${keyPath}"`, { stdio: 'pipe' })
+  execSync(
+    `openssl ecparam -genkey -name prime256v1 -noout -out "${keyPath}"`,
+    { stdio: 'pipe' }
+  )
 
   // Generate self-signed certificate (10 years)
   execSync(

@@ -70,7 +70,8 @@ const db = {
     addAttachment: (
       worktreeId: string,
       attachment: { type: 'jira' | 'figma'; url: string; label: string }
-    ) => ipcRenderer.invoke('db:worktree:addAttachment', { worktreeId, attachment }),
+    ) =>
+      ipcRenderer.invoke('db:worktree:addAttachment', { worktreeId, attachment }),
     removeAttachment: (worktreeId: string, attachmentId: string) =>
       ipcRenderer.invoke('db:worktree:removeAttachment', { worktreeId, attachmentId }),
     setPinned: (worktreeId: string, pinned: boolean) =>
@@ -86,7 +87,7 @@ const db = {
       connection_id?: string | null
       name?: string | null
       opencode_session_id?: string | null
-      agent_sdk?: 'opencode' | 'claude-code' | 'terminal' | 'codex'
+      agent_sdk?: 'opencode' | 'claude-code'
       model_provider_id?: string | null
       model_id?: string | null
       model_variant?: string | null
@@ -103,7 +104,7 @@ const db = {
         name?: string | null
         status?: 'active' | 'completed' | 'error'
         opencode_session_id?: string | null
-        agent_sdk?: 'opencode' | 'claude-code' | 'terminal' | 'codex'
+        agent_sdk?: 'opencode' | 'claude-code'
         mode?: 'build' | 'plan'
         model_provider_id?: string | null
         model_id?: string | null
@@ -393,8 +394,8 @@ const systemOps = {
   // Check if response logging is enabled (--log flag)
   isLogMode: (): Promise<boolean> => ipcRenderer.invoke('system:isLogMode'),
 
-  // Detect which agent SDKs (opencode, claude, codex) are installed on the system
-  detectAgentSdks: (): Promise<{ opencode: boolean; claude: boolean; codex: boolean }> =>
+  // Detect which agent SDKs (opencode, claude) are installed on the system
+  detectAgentSdks: (): Promise<{ opencode: boolean; claude: boolean }> =>
     ipcRenderer.invoke('system:detectAgentSdks'),
 
   // Quit the app (needed for macOS where window.close() doesn't quit)
@@ -1049,7 +1050,7 @@ const opencodeOps = {
 
   // List available models from all configured providers
   listModels: (opts?: {
-    agentSdk?: 'opencode' | 'claude-code' | 'codex'
+    agentSdk?: 'opencode' | 'claude-code'
   }): Promise<{
     success: boolean
     providers: Record<string, unknown>
@@ -1061,7 +1062,7 @@ const opencodeOps = {
     providerID: string
     modelID: string
     variant?: string
-    agentSdk?: 'opencode' | 'claude-code' | 'codex'
+    agentSdk?: 'opencode' | 'claude-code'
   }): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('opencode:setModel', model),
 
@@ -1069,7 +1070,7 @@ const opencodeOps = {
   modelInfo: (
     worktreePath: string,
     modelId: string,
-    agentSdk?: 'opencode' | 'claude-code' | 'codex'
+    agentSdk?: 'opencode' | 'claude-code'
   ): Promise<{
     success: boolean
     model?: { id: string; name: string; limit: { context: number } }
@@ -1486,8 +1487,7 @@ const terminalOps = {
 }
 
 const updaterOps = {
-  checkForUpdate: (options?: { manual?: boolean }): Promise<void> =>
-    ipcRenderer.invoke('updater:check', options),
+  checkForUpdate: (): Promise<void> => ipcRenderer.invoke('updater:check'),
   downloadUpdate: (): Promise<void> => ipcRenderer.invoke('updater:download'),
   installUpdate: (): Promise<void> => ipcRenderer.invoke('updater:install'),
   setChannel: (channel: string): Promise<void> => ipcRenderer.invoke('updater:setChannel', channel),
@@ -1504,21 +1504,11 @@ const updaterOps = {
   },
 
   onUpdateAvailable: (
-    callback: (data: {
-      version: string
-      releaseNotes?: string
-      releaseDate?: string
-      isManualCheck?: boolean
-    }) => void
+    callback: (data: { version: string; releaseNotes?: string; releaseDate?: string }) => void
   ): (() => void) => {
     const handler = (
       _e: Electron.IpcRendererEvent,
-      data: {
-        version: string
-        releaseNotes?: string
-        releaseDate?: string
-        isManualCheck?: boolean
-      }
+      data: { version: string; releaseNotes?: string; releaseDate?: string }
     ): void => {
       callback(data)
     }
@@ -1528,13 +1518,8 @@ const updaterOps = {
     }
   },
 
-  onUpdateNotAvailable: (
-    callback: (data: { version: string; isManualCheck?: boolean }) => void
-  ): (() => void) => {
-    const handler = (
-      _e: Electron.IpcRendererEvent,
-      data: { version: string; isManualCheck?: boolean }
-    ): void => {
+  onUpdateNotAvailable: (callback: (data: { version: string }) => void): (() => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, data: { version: string }): void => {
       callback(data)
     }
     ipcRenderer.on('updater:not-available', handler)
@@ -1578,13 +1563,8 @@ const updaterOps = {
     }
   },
 
-  onError: (
-    callback: (data: { message: string; isManualCheck?: boolean }) => void
-  ): (() => void) => {
-    const handler = (
-      _e: Electron.IpcRendererEvent,
-      data: { message: string; isManualCheck?: boolean }
-    ): void => {
+  onError: (callback: (data: { message: string }) => void): (() => void) => {
+    const handler = (_e: Electron.IpcRendererEvent, data: { message: string }): void => {
       callback(data)
     }
     ipcRenderer.on('updater:error', handler)
@@ -1624,8 +1604,10 @@ const usageOps = {
 const analyticsOps = {
   track: (event: string, properties?: Record<string, unknown>) =>
     ipcRenderer.invoke('telemetry:track', event, properties),
-  setEnabled: (enabled: boolean) => ipcRenderer.invoke('telemetry:setEnabled', enabled),
-  isEnabled: () => ipcRenderer.invoke('telemetry:isEnabled') as Promise<boolean>
+  setEnabled: (enabled: boolean) =>
+    ipcRenderer.invoke('telemetry:setEnabled', enabled),
+  isEnabled: () =>
+    ipcRenderer.invoke('telemetry:isEnabled') as Promise<boolean>
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

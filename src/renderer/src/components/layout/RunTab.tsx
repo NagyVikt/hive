@@ -54,7 +54,8 @@ export function RunTab({ worktreeId }: RunTabProps): React.JSX.Element {
     const el = outputRef.current
     if (!el) return
     const handleScroll = (): void => {
-      isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 50
+      isAtBottomRef.current =
+        el.scrollHeight - el.scrollTop - el.clientHeight < 50
     }
     el.addEventListener('scroll', handleScroll, { passive: true })
     return () => el.removeEventListener('scroll', handleScroll)
@@ -248,27 +249,29 @@ export function RunTab({ worktreeId }: RunTabProps): React.JSX.Element {
             position: 'relative'
           }}
         >
-          {buffer &&
-            virtualizer.getVirtualItems().map((virtualRow) => {
-              const line = buffer.get(virtualRow.index)
-              if (line === null) return null
-              return (
-                <div
-                  key={virtualRow.key}
-                  data-index={virtualRow.index}
-                  ref={virtualizer.measureElement}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${virtualRow.start}px)`
-                  }}
-                >
-                  <RunOutputLine line={line} highlight={highlightMap.get(virtualRow.index)} />
-                </div>
-              )
-            })}
+          {buffer && virtualizer.getVirtualItems().map((virtualRow) => {
+            const line = buffer.get(virtualRow.index)
+            if (line === null) return null
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${virtualRow.start}px)`
+                }}
+              >
+                <RunOutputLine
+                  line={line}
+                  highlight={highlightMap.get(virtualRow.index)}
+                />
+              </div>
+            )
+          })}
         </div>
       </div>
 

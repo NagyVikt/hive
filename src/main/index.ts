@@ -34,7 +34,6 @@ import { createResponseLog, appendResponseLog } from './services/response-logger
 import { notificationService } from './services/notification-service'
 import { updaterService } from './services/updater'
 import { ClaudeCodeImplementer } from './services/claude-code-implementer'
-import { CodexImplementer } from './services/codex-implementer'
 import { AgentSdkManager } from './services/agent-sdk-manager'
 import { resolveClaudeBinaryPath } from './services/claude-binary-resolver'
 import type { AgentSdkImplementer } from './services/agent-sdk-types'
@@ -51,7 +50,9 @@ const isHeadless = cliArgs.includes('--headless')
 const headlessPort = cliArgs.includes('--port')
   ? parseInt(cliArgs[cliArgs.indexOf('--port') + 1])
   : undefined
-const headlessBind = cliArgs.includes('--bind') ? cliArgs[cliArgs.indexOf('--bind') + 1] : undefined
+const headlessBind = cliArgs.includes('--bind')
+  ? cliArgs[cliArgs.indexOf('--bind') + 1]
+  : undefined
 const isRotateKey = cliArgs.includes('--rotate-key')
 const isRegenCerts = cliArgs.includes('--regen-certs')
 const isShowStatus = cliArgs.includes('--show-status')
@@ -325,13 +326,12 @@ function registerSystemHandlers(): void {
 
     try {
       const execPath = process.execPath
-      const scriptContent =
-        [
-          '#!/bin/bash',
-          '# hive-server — Hive headless mode launcher',
-          '# Installed by Hive.app',
-          `exec "${execPath}" --headless "$@"`
-        ].join('\n') + '\n'
+      const scriptContent = [
+        '#!/bin/bash',
+        '# hive-server — Hive headless mode launcher',
+        '# Installed by Hive.app',
+        `exec "${execPath}" --headless "$@"`
+      ].join('\n') + '\n'
 
       // Write to a temp file first (no admin needed), then move with elevation
       const tmpPath = join(app.getPath('temp'), 'hive-server-install')
@@ -494,8 +494,6 @@ app.whenReady().then(async () => {
     const claudeImpl = new ClaudeCodeImplementer()
     claudeImpl.setDatabaseService(getDatabase())
     claudeImpl.setClaudeBinaryPath(claudeBinaryPath)
-    const codexImpl = new CodexImplementer()
-    codexImpl.setDatabaseService(getDatabase())
     const openCodePlaceholder = {
       id: 'opencode' as const,
       capabilities: {
@@ -530,7 +528,7 @@ app.whenReady().then(async () => {
       renameSession: async () => {},
       setMainWindow: () => {}
     } satisfies AgentSdkImplementer
-    const sdkManager = new AgentSdkManager(openCodePlaceholder, claudeImpl, codexImpl)
+    const sdkManager = new AgentSdkManager(openCodePlaceholder, claudeImpl)
     sdkManager.setMainWindow(mainWindow)
 
     const databaseService = getDatabase()

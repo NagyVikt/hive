@@ -518,7 +518,8 @@ export function Header(): React.JSX.Element {
                     <DropdownMenuItem
                       key={branch.name}
                       onClick={() =>
-                        selectedWorktreeId && setReviewTargetBranch(selectedWorktreeId, branch.name)
+                        selectedWorktreeId &&
+                        setReviewTargetBranch(selectedWorktreeId, branch.name)
                       }
                       data-testid={`review-target-branch-${branch.name}`}
                     >

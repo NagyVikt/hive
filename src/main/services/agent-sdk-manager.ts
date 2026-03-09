@@ -8,11 +8,10 @@ export class AgentSdkManager {
   private implementers: Map<AgentSdkId, AgentSdkImplementer>
   readonly defaultSdkId: AgentSdkId = 'opencode'
 
-  constructor(opencode: AgentSdkImplementer, claudeCode: AgentSdkImplementer, codex: AgentSdkImplementer) {
+  constructor(opencode: AgentSdkImplementer, claudeCode: AgentSdkImplementer) {
     this.implementers = new Map<AgentSdkId, AgentSdkImplementer>([
       ['opencode', opencode],
-      ['claude-code', claudeCode],
-      ['codex', codex]
+      ['claude-code', claudeCode]
     ])
     log.info('AgentSdkManager initialized', {
       sdks: Array.from(this.implementers.keys())

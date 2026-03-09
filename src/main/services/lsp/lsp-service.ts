@@ -86,7 +86,10 @@ export class LspService {
   /**
    * Open a file on all matching clients, optionally waiting for diagnostics.
    */
-  async touchFile(filePath: string, waitForDiagnostics?: boolean): Promise<void> {
+  async touchFile(
+    filePath: string,
+    waitForDiagnostics?: boolean
+  ): Promise<void> {
     const clients = await this.getClients(filePath)
 
     for (const client of clients) {
@@ -254,16 +257,20 @@ export class LspService {
     for (const client of clients) {
       try {
         const uri = pathToFileURL(pos.file).toString()
-        const items = (await client.connection.sendRequest('textDocument/prepareCallHierarchy', {
-          textDocument: { uri },
-          position: { line: pos.line, character: pos.character }
-        })) as unknown[] | null
+        const items = await client.connection.sendRequest(
+          'textDocument/prepareCallHierarchy',
+          {
+            textDocument: { uri },
+            position: { line: pos.line, character: pos.character }
+          }
+        ) as unknown[] | null
 
         if (items && Array.isArray(items)) {
           for (const item of items) {
-            const calls = await client.connection.sendRequest('callHierarchy/incomingCalls', {
-              item
-            })
+            const calls = await client.connection.sendRequest(
+              'callHierarchy/incomingCalls',
+              { item }
+            )
             if (calls) {
               const callItems = Array.isArray(calls) ? calls : [calls]
               results.push(...callItems)
@@ -285,16 +292,20 @@ export class LspService {
     for (const client of clients) {
       try {
         const uri = pathToFileURL(pos.file).toString()
-        const items = (await client.connection.sendRequest('textDocument/prepareCallHierarchy', {
-          textDocument: { uri },
-          position: { line: pos.line, character: pos.character }
-        })) as unknown[] | null
+        const items = await client.connection.sendRequest(
+          'textDocument/prepareCallHierarchy',
+          {
+            textDocument: { uri },
+            position: { line: pos.line, character: pos.character }
+          }
+        ) as unknown[] | null
 
         if (items && Array.isArray(items)) {
           for (const item of items) {
-            const calls = await client.connection.sendRequest('callHierarchy/outgoingCalls', {
-              item
-            })
+            const calls = await client.connection.sendRequest(
+              'callHierarchy/outgoingCalls',
+              { item }
+            )
             if (calls) {
               const callItems = Array.isArray(calls) ? calls : [calls]
               results.push(...callItems)
@@ -332,7 +343,9 @@ export class LspService {
    * Shut down all clients and clear all state.
    */
   async shutdown(): Promise<void> {
-    const shutdownPromises = this.clients.map((client) => client.shutdown().catch(() => {}))
+    const shutdownPromises = this.clients.map((client) =>
+      client.shutdown().catch(() => {})
+    )
     await Promise.all(shutdownPromises)
 
     this.clients = []

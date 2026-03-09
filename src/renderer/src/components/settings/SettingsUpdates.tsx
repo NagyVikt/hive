@@ -19,7 +19,7 @@ export function SettingsUpdates(): React.JSX.Element {
   const handleCheckForUpdates = async (): Promise<void> => {
     setChecking(true)
     try {
-      await window.updaterOps?.checkForUpdate({ manual: true })
+      await window.updaterOps?.checkForUpdate()
     } catch {
       /* ignored */
     }

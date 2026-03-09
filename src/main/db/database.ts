@@ -645,13 +645,18 @@ export class DatabaseService {
   /**
    * Remove an attachment from a worktree by attachment ID.
    */
-  removeAttachment(worktreeId: string, attachmentId: string): { success: boolean; error?: string } {
+  removeAttachment(
+    worktreeId: string,
+    attachmentId: string
+  ): { success: boolean; error?: string } {
     const db = this.getDb()
     const row = db.prepare('SELECT attachments FROM worktrees WHERE id = ?').get(worktreeId) as
       | Record<string, unknown>
       | undefined
     if (!row) return { success: false, error: 'Worktree not found' }
-    const attachments: Array<{ id: string }> = JSON.parse((row.attachments as string) || '[]')
+    const attachments: Array<{ id: string }> = JSON.parse(
+      (row.attachments as string) || '[]'
+    )
     const filtered = attachments.filter((a) => a.id !== attachmentId)
     if (filtered.length === attachments.length) {
       return { success: false, error: 'Attachment not found' }
@@ -741,11 +746,11 @@ export class DatabaseService {
     return row ?? null
   }
 
-  getAgentSdkForSession(agentSessionId: string): 'opencode' | 'claude-code' | 'codex' | null {
+  getAgentSdkForSession(agentSessionId: string): 'opencode' | 'claude-code' | null {
     const db = this.getDb()
     const row = db
       .prepare('SELECT agent_sdk FROM sessions WHERE opencode_session_id = ? LIMIT 1')
-      .get(agentSessionId) as { agent_sdk: 'opencode' | 'claude-code' | 'codex' } | undefined
+      .get(agentSessionId) as { agent_sdk: 'opencode' | 'claude-code' } | undefined
     return row?.agent_sdk ?? null
   }
 

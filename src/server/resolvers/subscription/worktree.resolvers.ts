@@ -16,9 +16,7 @@ export const worktreeSubscriptionResolvers: Resolvers = {
         try {
           while (true) {
             if (queue.length === 0) {
-              await new Promise<void>((r) => {
-                resolve = r
-              })
+              await new Promise<void>(r => { resolve = r })
             }
             while (queue.length > 0) {
               yield { worktreeBranchRenamed: queue.shift()! }

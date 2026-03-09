@@ -19,7 +19,11 @@ export function registerFileHandlers(): void {
     }> => {
       const result = readFile(filePath)
       if (!result.success) {
-        log.error('Failed to read file', new Error(result.error ?? 'Unknown error'), { filePath })
+        log.error(
+          'Failed to read file',
+          new Error(result.error ?? 'Unknown error'),
+          { filePath }
+        )
       }
       return result
     }
@@ -38,9 +42,11 @@ export function registerFileHandlers(): void {
     }> => {
       const result = readPromptFile(promptName)
       if (!result.success) {
-        log.error('Failed to read prompt', new Error(result.error ?? 'Unknown error'), {
-          promptName
-        })
+        log.error(
+          'Failed to read prompt',
+          new Error(result.error ?? 'Unknown error'),
+          { promptName }
+        )
       }
       return result
     }

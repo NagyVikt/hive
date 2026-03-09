@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron'
 
-export type AgentSdkId = 'opencode' | 'claude-code' | 'terminal' | 'codex'
+export type AgentSdkId = 'opencode' | 'claude-code' | 'terminal'
 
 export interface AgentSdkCapabilities {
   supportsUndo: boolean
@@ -128,15 +128,4 @@ export const TERMINAL_CAPABILITIES: AgentSdkCapabilities = {
   supportsModelSelection: false,
   supportsReconnect: false,
   supportsPartialStreaming: false
-}
-
-export const CODEX_CAPABILITIES: AgentSdkCapabilities = {
-  supportsUndo: false,
-  supportsRedo: false,
-  supportsCommands: false,
-  supportsPermissionRequests: false,
-  supportsQuestionPrompts: false,
-  supportsModelSelection: true,
-  supportsReconnect: true,
-  supportsPartialStreaming: true
 }

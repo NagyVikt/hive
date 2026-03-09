@@ -44,7 +44,9 @@ export const usePinnedStore = create<PinnedState>()((set, get) => ({
         }
       }
       await Promise.all(
-        [...projectsToLoad].map((pid) => useWorktreeStore.getState().loadWorktrees(pid))
+        [...projectsToLoad].map((pid) =>
+          useWorktreeStore.getState().loadWorktrees(pid)
+        )
       )
 
       set({ pinnedWorktreeIds: worktreeIds, pinnedConnectionIds: connectionIds, loaded: true })

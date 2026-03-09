@@ -16,10 +16,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useSettingsStore } from '@/stores/useSettingsStore'
 import { patternMatches } from '@/lib/permissionUtils'
-import type {
-  CommandApprovalRequest,
-  SubCommandSuggestions
-} from '@/stores/useCommandApprovalStore'
+import type { CommandApprovalRequest, SubCommandSuggestions } from '@/stores/useCommandApprovalStore'
 
 interface CommandApprovalPromptProps {
   request: CommandApprovalRequest
@@ -261,9 +258,12 @@ export function CommandApprovalPrompt({ request, onReply }: CommandApprovalPromp
     })
   }, [request.subCommandPatterns])
 
-  const hasSubCommands = Boolean(uniqueSubCommandPatterns && uniqueSubCommandPatterns.length > 1)
-  const [selectedSubPatterns, setSelectedSubPatterns] = useState<Record<number, string>>(() =>
-    uniqueSubCommandPatterns ? buildDefaultSubPatterns(uniqueSubCommandPatterns) : {}
+  const hasSubCommands = Boolean(
+    uniqueSubCommandPatterns && uniqueSubCommandPatterns.length > 1
+  )
+  const [selectedSubPatterns, setSelectedSubPatterns] = useState<Record<number, string>>(
+    () =>
+      uniqueSubCommandPatterns ? buildDefaultSubPatterns(uniqueSubCommandPatterns) : {}
   )
 
   // Check which sub-commands are already covered by the allowlist
