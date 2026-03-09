@@ -736,7 +736,6 @@ const CompactFileToolCard = memo(function CompactFileToolCard({
 }): React.JSX.Element {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const lowerName = toolUse.name.toLowerCase()
   const isSearch = isSearchOperation(toolUse.name)
   const isSkill = isSkillTool(toolUse.name)
   const isLsp = isLspTool(toolUse.name)
@@ -1113,14 +1112,6 @@ export const ToolCard = memo(function ToolCard({
           data-testid="tool-output"
         >
           <div className={cn('border-t border-border', compact ? 'px-2 py-1.5' : 'px-2.5 py-2')}>
-            {/* Show full command for bash tools */}
-            {isBash && command && (
-              <div className="mb-2 text-xs">
-                <div className="font-mono text-muted-foreground whitespace-pre-wrap break-all bg-muted/30 rounded px-2 py-1.5 max-h-32 overflow-y-auto">
-                  <span className="text-green-500">$</span> {command}
-                </div>
-              </div>
-            )}
             <Renderer
               name={toolUse.name}
               input={toolUse.input}
