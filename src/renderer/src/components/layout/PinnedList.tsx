@@ -232,15 +232,16 @@ function PinnedWorktreeItem({ worktreeId }: { worktreeId: string }): React.JSX.E
   const startBranchRename = useCallback((): void => {
     if (!worktree) return
     intentionalCloseRef.current = false
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current) // Clear any pending blur timer
     renameStartTimeRef.current = Date.now() // Record time before setting state
     setBranchNameInput(worktree.branch_name)
     setIsRenamingBranch(true)
   }, [worktree])
 
   const handleBranchRename = useCallback(async (): Promise<void> => {
-    if (!worktree) return
     intentionalCloseRef.current = true
     if (blurTimerRef.current) clearTimeout(blurTimerRef.current)
+    if (!worktree) return
     const trimmed = branchNameInput.trim()
     if (!trimmed || trimmed === worktree.branch_name) {
       setIsRenamingBranch(false)
@@ -570,8 +571,22 @@ function PinnedWorktreeItem({ worktreeId }: { worktreeId: string }): React.JSX.E
                   // Ignore blur events that happen too soon after starting rename (menu closing)
                   const timeSinceStart = Date.now() - renameStartTimeRef.current
                   if (timeSinceStart < 500) {
-                    // Re-focus the input immediately
+                    // Re-focus only if focus didn't move to another interactive element
                     setTimeout(() => {
+                      const activeEl = document.activeElement
+                      const isInteractive =
+                        activeEl instanceof HTMLInputElement ||
+                        activeEl instanceof HTMLButtonElement ||
+                        activeEl instanceof HTMLAnchorElement ||
+                        activeEl?.getAttribute('role') === 'button'
+
+                      // If focus is on another interactive element, respect the user's navigation
+                      if (isInteractive) {
+                        setIsRenamingBranch(false)
+                        return
+                      }
+
+                      // Otherwise re-focus (likely menu close blur)
                       if (renameInputRef.current && isRenamingBranch) {
                         renameInputRef.current.focus()
                         renameInputRef.current.select()
@@ -738,6 +753,7 @@ function PinnedConnectionItem({
   const handleStartRename = useCallback((): void => {
     if (!connection) return
     intentionalCloseRef.current = false
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current) // Clear any pending blur timer
     renameStartTimeRef.current = Date.now() // Record time before setting state
     setNameInput(connection.custom_name || '')
     setIsRenaming(true)
@@ -943,8 +959,22 @@ function PinnedConnectionItem({
                   // Ignore blur events that happen too soon after starting rename (menu closing)
                   const timeSinceStart = Date.now() - renameStartTimeRef.current
                   if (timeSinceStart < 500) {
-                    // Re-focus the input immediately
+                    // Re-focus only if focus didn't move to another interactive element
                     setTimeout(() => {
+                      const activeEl = document.activeElement
+                      const isInteractive =
+                        activeEl instanceof HTMLInputElement ||
+                        activeEl instanceof HTMLButtonElement ||
+                        activeEl instanceof HTMLAnchorElement ||
+                        activeEl?.getAttribute('role') === 'button'
+
+                      // If focus is on another interactive element, respect the user's navigation
+                      if (isInteractive) {
+                        setIsRenaming(false)
+                        return
+                      }
+
+                      // Otherwise re-focus (likely menu close blur)
                       if (renameInputRef.current && isRenaming) {
                         renameInputRef.current.focus()
                         renameInputRef.current.select()

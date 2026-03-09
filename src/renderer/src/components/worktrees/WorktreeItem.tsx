@@ -245,6 +245,7 @@ export function WorktreeItem({
 
   const startBranchRename = useCallback((): void => {
     intentionalCloseRef.current = false
+    if (blurTimerRef.current) clearTimeout(blurTimerRef.current) // Clear any pending blur timer
     renameStartTimeRef.current = Date.now() // Record time before setting state
     setBranchNameInput(worktree.branch_name)
     setIsRenamingBranch(true)
@@ -544,8 +545,22 @@ export function WorktreeItem({
                   // Ignore blur events that happen too soon after starting rename (menu closing)
                   const timeSinceStart = Date.now() - renameStartTimeRef.current
                   if (timeSinceStart < 500) {
-                    // Re-focus the input immediately
+                    // Re-focus only if focus didn't move to another interactive element
                     setTimeout(() => {
+                      const activeEl = document.activeElement
+                      const isInteractive =
+                        activeEl instanceof HTMLInputElement ||
+                        activeEl instanceof HTMLButtonElement ||
+                        activeEl instanceof HTMLAnchorElement ||
+                        activeEl?.getAttribute('role') === 'button'
+
+                      // If focus is on another interactive element, respect the user's navigation
+                      if (isInteractive) {
+                        setIsRenamingBranch(false)
+                        return
+                      }
+
+                      // Otherwise re-focus (likely menu close blur)
                       if (renameInputRef.current && isRenamingBranch) {
                         renameInputRef.current.focus()
                         renameInputRef.current.select()
