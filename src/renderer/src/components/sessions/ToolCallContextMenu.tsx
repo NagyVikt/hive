@@ -23,13 +23,15 @@ export function ToolCallContextMenu({ children, toolUse }: ToolCallContextMenuPr
 
     // Extract command/pattern based on tool type
     const lowerName = toolUse.name.toLowerCase()
+    const isTodoWrite = lowerName.includes('todowrite') || lowerName.includes('todo_write')
+
     if (lowerName.includes('bash') || lowerName.includes('shell') || lowerName.includes('exec')) {
       textToCopy = (toolUse.input.command || toolUse.input.cmd || '') as string
     } else if (lowerName.includes('grep') || lowerName.includes('search')) {
       textToCopy = (toolUse.input.pattern || toolUse.input.query || toolUse.input.regex || '') as string
     } else if (lowerName.includes('glob') || lowerName.includes('find')) {
       textToCopy = (toolUse.input.pattern || toolUse.input.glob || '') as string
-    } else if (lowerName.includes('read') || lowerName.includes('write') || lowerName.includes('edit')) {
+    } else if (!isTodoWrite && (lowerName.includes('read') || lowerName.includes('write') || lowerName.includes('edit'))) {
       textToCopy = (toolUse.input.filePath || toolUse.input.file_path || toolUse.input.path || '') as string
     } else if (lowerName === 'webfetch' || lowerName === 'web_fetch') {
       textToCopy = (toolUse.input.url || '') as string
@@ -58,7 +60,7 @@ export function ToolCallContextMenu({ children, toolUse }: ToolCallContextMenuPr
         <ContextMenuContent>
           <ContextMenuItem onClick={handleCopyCommand} className="gap-2">
             <Copy className="h-3.5 w-3.5" />
-            Copy Command
+            Copy Details
           </ContextMenuItem>
           <ContextMenuItem onClick={() => setDebugOpen(true)} className="gap-2">
             <Bug className="h-3.5 w-3.5" />
