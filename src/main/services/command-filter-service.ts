@@ -25,15 +25,103 @@ export interface SubCommandSuggestions {
 export class CommandFilterService {
   /**
    * Split a bash command chain into individual sub-commands.
-   * Splits on ` && `, ` || `, `| ` (pipe), and `; ` (space-delimited to avoid
-   * splitting inside quoted strings or URLs).
+   * Splits on ` && `, ` || `, `| ` (pipe), and `; ` while respecting quotes and heredocs.
    * Note: `||` is matched before `|` so the OR operator is not mis-split as two pipes.
    */
   splitBashChain(command: string): string[] {
-    return command
-      .split(/\s+&&\s+|\s+\|\|\s+|\s+\|\s+|\s*;\s+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
+    const parts: string[] = []
+    let current = ''
+    let inSingleQuote = false
+    let inDoubleQuote = false
+    let escapeNext = false
+    let i = 0
+
+    while (i < command.length) {
+      const char = command[i]
+      const next = command[i + 1]
+      const next2 = command[i + 2]
+
+      // Handle escape sequences
+      if (escapeNext) {
+        current += char
+        escapeNext = false
+        i++
+        continue
+      }
+
+      if (char === '\\') {
+        current += char
+        escapeNext = true
+        i++
+        continue
+      }
+
+      // Handle quotes
+      if (char === "'" && !inDoubleQuote) {
+        inSingleQuote = !inSingleQuote
+        current += char
+        i++
+        continue
+      }
+
+      if (char === '"' && !inSingleQuote) {
+        inDoubleQuote = !inDoubleQuote
+        current += char
+        i++
+        continue
+      }
+
+      // Only split on operators when not inside quotes
+      if (!inSingleQuote && !inDoubleQuote) {
+        // Check for &&
+        if (char === '&' && next === '&') {
+          if (current.trim()) parts.push(current.trim())
+          current = ''
+          i += 2
+          // Skip whitespace after operator
+          while (i < command.length && /\s/.test(command[i])) i++
+          continue
+        }
+
+        // Check for ||
+        if (char === '|' && next === '|') {
+          if (current.trim()) parts.push(current.trim())
+          current = ''
+          i += 2
+          // Skip whitespace after operator
+          while (i < command.length && /\s/.test(command[i])) i++
+          continue
+        }
+
+        // Check for single | (pipe)
+        if (char === '|' && next !== '|') {
+          if (current.trim()) parts.push(current.trim())
+          current = ''
+          i++
+          // Skip whitespace after operator
+          while (i < command.length && /\s/.test(command[i])) i++
+          continue
+        }
+
+        // Check for ;
+        if (char === ';') {
+          if (current.trim()) parts.push(current.trim())
+          current = ''
+          i++
+          // Skip whitespace after operator
+          while (i < command.length && /\s/.test(command[i])) i++
+          continue
+        }
+      }
+
+      current += char
+      i++
+    }
+
+    // Add the last part
+    if (current.trim()) parts.push(current.trim())
+
+    return parts
   }
 
   /**
@@ -75,12 +163,22 @@ export class CommandFilterService {
       }
 
       // Allowlist: ALL sub-commands must be covered
-      if (
-        subCommands.length > 0 &&
-        subCommands.every((sub) => this.matchesAnyPattern(`bash: ${sub}`, settings.allowlist))
-      ) {
-        log.info('CommandFilter: all sub-commands allowed by allowlist', { subCommands })
-        return 'allow'
+      if (subCommands.length > 0) {
+        const allMatch = subCommands.every((sub) => {
+          const formatted = `bash: ${sub}`
+          const matches = this.matchesAnyPattern(formatted, settings.allowlist)
+          log.info('CommandFilter: checking sub-command against allowlist', {
+            subCommand: sub,
+            formatted,
+            matches,
+            allowlist: settings.allowlist
+          })
+          return matches
+        })
+        if (allMatch) {
+          log.info('CommandFilter: all sub-commands allowed by allowlist', { subCommands })
+          return 'allow'
+        }
       }
 
       log.info('CommandFilter: bash chain not fully covered, using default', {
@@ -160,9 +258,13 @@ export class CommandFilterService {
       const regex = new RegExp(`^${regexPattern}$`, 'i')
       const matches = regex.test(command)
 
-      if (matches) {
-        log.info('CommandFilter: pattern matched', { command, pattern })
-      }
+      log.info('CommandFilter: matchPattern', {
+        command,
+        pattern,
+        regexPattern,
+        isBashPattern,
+        matches
+      })
 
       return matches
     } catch (error) {
