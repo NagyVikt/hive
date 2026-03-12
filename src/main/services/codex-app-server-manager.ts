@@ -277,6 +277,16 @@ export function killChildTree(child: ChildProcess): void {
   child.kill()
 }
 
+// ── User input answer format ──────────────────────────────────────
+
+export interface CodexUserInputAnswer {
+  answers: string[]
+}
+
+export function toCodexUserInputAnswer(value: string): CodexUserInputAnswer {
+  return { answers: [value] }
+}
+
 // ── Manager class ─────────────────────────────────────────────────
 
 export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEvents> {
@@ -635,10 +645,11 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
       throw new Error(`respondToUserInput: no pending user input for requestId=${requestId}`)
     }
 
-    // Convert answers array into a map keyed by question id
-    const answersMap: Record<string, string> = {}
+    // Convert answers array into a map keyed by question id,
+    // wrapping each value in the Codex { answers: string[] } format
+    const answersMap: Record<string, CodexUserInputAnswer> = {}
     for (const { id, answer } of answers) {
-      answersMap[id] = answer
+      answersMap[id] = toCodexUserInputAnswer(answer)
     }
 
     this.writeMessage(context, {
@@ -649,11 +660,19 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
 
     context.pendingUserInputs.delete(requestId)
 
-    this.emitLifecycleEvent(
-      context,
-      'userInput/responded',
-      `User input ${requestId} responded`
-    )
+    this.emitEvent({
+      id: randomUUID(),
+      kind: 'notification',
+      provider: 'codex',
+      threadId: context.session.threadId ?? '',
+      createdAt: new Date().toISOString(),
+      method: 'item/tool/requestUserInput/answered',
+      requestId,
+      payload: {
+        requestId,
+        answers: answersMap
+      }
+    })
   }
 
   rejectUserInput(threadId: string, requestId: string): void {

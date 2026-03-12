@@ -132,7 +132,12 @@ describe('Codex Question Prompts', () => {
       expect(written).toEqual({
         jsonrpc: '2.0',
         id: 55,
-        result: { answers: { q1: 'yes', q2: 'no' } }
+        result: {
+          answers: {
+            q1: { answers: ['yes'] },
+            q2: { answers: ['no'] }
+          }
+        }
       })
     })
 
@@ -172,8 +177,12 @@ describe('Codex Question Prompts', () => {
         { id: 'q1', answer: 'yes' }
       ])
 
-      const inputEvent = events.find((e) => e.method === 'userInput/responded')
+      const inputEvent = events.find((e) => e.method === 'item/tool/requestUserInput/answered')
       expect(inputEvent).toBeDefined()
+      expect(inputEvent.kind).toBe('notification')
+      expect(inputEvent.requestId).toBe('uinput-1')
+      expect(inputEvent.payload).toBeDefined()
+      expect(inputEvent.payload.requestId).toBe('uinput-1')
     })
 
     it('throws when threadId is unknown', () => {
