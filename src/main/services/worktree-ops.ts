@@ -1,4 +1,5 @@
 import { existsSync } from 'fs'
+import { basename } from 'path'
 import { createGitService, isAutoNamedBranch } from './git-service'
 import { type BreedType } from './breed-names'
 import { scriptRunner } from './script-runner'
@@ -73,6 +74,10 @@ export interface WorktreeResult {
 export interface SimpleResult {
   success: boolean
   error?: string
+}
+
+function getImportedWorktreeName(branch: string | undefined, worktreePath: string): string {
+  return branch || basename(worktreePath)
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -234,12 +239,39 @@ export async function syncWorktreesOp(
 
     // Get database worktrees
     const dbWorktrees = db.getActiveWorktreesByProject(params.projectId)
+    const dbWorktreePaths = new Set(dbWorktrees.map((w) => w.path))
+
+    for (const gitWorktree of gitWorktrees) {
+      if (gitWorktree.path === params.projectPath || dbWorktreePaths.has(gitWorktree.path)) {
+        continue
+      }
+
+      const importedName = getImportedWorktreeName(gitWorktree.branch, gitWorktree.path)
+
+      log.info('Importing git worktree into database', {
+        projectId: params.projectId,
+        path: gitWorktree.path,
+        branch: gitWorktree.branch,
+        name: importedName
+      })
+
+      db.createWorktree({
+        project_id: params.projectId,
+        name: importedName,
+        branch_name: gitWorktree.branch,
+        path: gitWorktree.path
+      })
+    }
 
     // Build a map of git worktree path -> branch for quick lookup
     const gitBranchByPath = new Map(gitWorktrees.map((w) => [w.path, w.branch]))
 
     // Check each database worktree
     for (const dbWorktree of dbWorktrees) {
+      if (dbWorktree.is_default) {
+        continue
+      }
+
       // If worktree path doesn't exist in git worktrees or on disk
       if (!gitWorktreePaths.has(dbWorktree.path) && !existsSync(dbWorktree.path)) {
         // Mark as archived (worktree was removed outside of Hive)
