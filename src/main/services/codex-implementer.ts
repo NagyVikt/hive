@@ -181,8 +181,7 @@ export class CodexImplementer implements AgentSdkImplementer {
 
     // Handle token usage updates from the Codex provider
     if (event.kind === 'notification' && event.method === 'thread/tokenUsage/updated') {
-      const session = this.findSessionByThreadId(event.threadId)
-      if (!session) return
+      if (!targetSession) return
 
       const payload = asObject(event.payload)
       const tokenUsage = asObject(payload?.tokenUsage)
@@ -200,9 +199,11 @@ export class CodexImplementer implements AgentSdkImplementer {
 
       this.sendToRenderer('opencode:stream', {
         type: 'session.context_usage',
-        sessionId: session.hiveSessionId,
+        sessionId: targetSession.hiveSessionId,
         data: {
           tokens: {
+            // OpenAI inputTokens includes cached; subtract so
+            // input + cacheRead = total prompt tokens in store
             input: inputTokens - cachedInputTokens,
             cacheRead: cachedInputTokens,
             cacheWrite: 0,
@@ -218,12 +219,11 @@ export class CodexImplementer implements AgentSdkImplementer {
 
     // Handle thread compaction notifications
     if (event.kind === 'notification' && event.method === 'thread/compacted') {
-      const session = this.findSessionByThreadId(event.threadId)
-      if (!session) return
+      if (!targetSession) return
 
       this.sendToRenderer('opencode:stream', {
         type: 'session.context_compacted',
-        sessionId: session.hiveSessionId,
+        sessionId: targetSession.hiveSessionId,
         data: {}
       })
       return
