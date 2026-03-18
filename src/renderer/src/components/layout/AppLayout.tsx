@@ -10,6 +10,7 @@ import { SettingsModal } from '@/components/settings'
 import { AgentSetupGuard } from '@/components/setup'
 import { FileSearchDialog } from '@/components/file-search'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
+import { useVimNavigation } from '@/hooks/useVimNavigation'
 import { useOpenCodeGlobalListener } from '@/hooks/useOpenCodeGlobalListener'
 import { useNotificationNavigation } from '@/hooks/useNotificationNavigation'
 import { useWindowFocusRefresh } from '@/hooks/useWindowFocusRefresh'
@@ -47,6 +48,8 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps): React.JSX.Element {
   // Register all keyboard shortcuts centrally
   useKeyboardShortcuts()
+  // Vim-style modal navigation (hjkl, panel shortcuts, file tab cycling)
+  useVimNavigation()
   // Global listener for background session events (AI finishes while viewing another project)
   useOpenCodeGlobalListener()
   // Navigate to session when native notification is clicked

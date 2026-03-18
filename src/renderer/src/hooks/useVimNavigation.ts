@@ -2,6 +2,10 @@ import { useEffect } from 'react'
 import { useVimModeStore } from '@/stores/useVimModeStore'
 import { useCommandPaletteStore } from '@/stores/useCommandPaletteStore'
 import { useLayoutStore } from '@/stores/useLayoutStore'
+import { useFileViewerStore } from '@/stores/useFileViewerStore'
+
+const SIDEBAR_SCROLL_STEP = 80
+const TABS_SCROLL_STEP = 150
 
 function isInputElement(el: Element | null): boolean {
   if (!el) return false
@@ -20,6 +24,36 @@ function isInsideRadixOverlay(el: Element | null): boolean {
 
 export function useVimNavigation(): void {
   useEffect(() => {
+    // --- Scroll helpers ---
+
+    function scrollSidebar(delta: number): void {
+      const container = document.querySelector('[data-testid="sidebar-scroll-container"]')
+      if (!container) return
+      container.scrollBy({ top: delta * SIDEBAR_SCROLL_STEP, behavior: 'smooth' })
+    }
+
+    function scrollSessionTabs(delta: number): void {
+      const container = document.querySelector('[data-testid="session-tabs-scroll-container"]')
+      if (!container) return
+      container.scrollBy({ left: delta * TABS_SCROLL_STEP, behavior: 'smooth' })
+    }
+
+    function navigateFileTab(delta: number): void {
+      const { openFiles, activeFilePath, setActiveFile } = useFileViewerStore.getState()
+      const keys = Array.from(openFiles.keys())
+      if (keys.length === 0) return
+
+      const currentIndex = keys.indexOf(activeFilePath || '')
+      const newIndex = currentIndex + delta
+
+      // Clamp — do nothing if already at boundary
+      if (newIndex < 0 || newIndex >= keys.length) return
+
+      setActiveFile(keys[newIndex])
+    }
+
+    // --- Key handler ---
+
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
 
@@ -60,6 +94,75 @@ export function useVimNavigation(): void {
 
       if (event.key === '?') {
         vim.toggleHelpOverlay()
+        event.preventDefault()
+        return
+      }
+
+      // --- hjkl scroll: sidebar vertical ---
+      if (event.key === 'j' || event.key === 'ArrowDown') {
+        scrollSidebar(1)
+        event.preventDefault()
+        return
+      }
+
+      if (event.key === 'k' || event.key === 'ArrowUp') {
+        scrollSidebar(-1)
+        event.preventDefault()
+        return
+      }
+
+      // --- hjkl scroll: session tabs horizontal ---
+      if (event.key === 'l' || event.key === 'ArrowRight') {
+        scrollSessionTabs(1)
+        event.preventDefault()
+        return
+      }
+
+      if (event.key === 'h' || event.key === 'ArrowLeft') {
+        scrollSessionTabs(-1)
+        event.preventDefault()
+        return
+      }
+
+      // --- Panel shortcuts: right sidebar tabs ---
+      if (event.key === 'c' || event.key === 'f' || event.key === 'd') {
+        const layout = useLayoutStore.getState()
+        if (layout.rightSidebarCollapsed) {
+          layout.setRightSidebarCollapsed(false)
+        }
+        const tabMap: Record<string, string> = { c: 'changes', f: 'files', d: 'diffs' }
+        window.dispatchEvent(
+          new CustomEvent('hive:right-sidebar-tab', { detail: { tab: tabMap[event.key] } })
+        )
+        event.preventDefault()
+        return
+      }
+
+      // --- Panel shortcuts: bottom panel tabs ---
+      if (event.key === 's' || event.key === 'r' || event.key === 't') {
+        const layout = useLayoutStore.getState()
+        if (layout.rightSidebarCollapsed) {
+          layout.setRightSidebarCollapsed(false)
+        }
+        const tabMap: Record<string, 'setup' | 'run' | 'terminal'> = {
+          s: 'setup',
+          r: 'run',
+          t: 'terminal'
+        }
+        layout.setBottomPanelTab(tabMap[event.key])
+        event.preventDefault()
+        return
+      }
+
+      // --- File tab navigation ---
+      if (event.key === '[') {
+        navigateFileTab(-1)
+        event.preventDefault()
+        return
+      }
+
+      if (event.key === ']') {
+        navigateFileTab(1)
         event.preventDefault()
         return
       }

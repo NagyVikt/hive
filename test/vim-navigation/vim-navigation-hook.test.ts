@@ -72,8 +72,24 @@ vi.mock('@/stores/useHintStore', () => ({
   }
 }))
 
+// Session 3 — additional store mocks for panel + file tab navigation
+
+const mockSetActiveFile = vi.fn()
+
+const fileViewerState = {
+  openFiles: new Map<string, { type: string; path?: string }>(),
+  activeFilePath: null as string | null,
+  setActiveFile: mockSetActiveFile
+}
+
+vi.mock('@/stores/useFileViewerStore', () => ({
+  useFileViewerStore: {
+    getState: () => fileViewerState
+  }
+}))
+
 // ---------------------------------------------------------------------------
-// Import the hook under test (does NOT exist yet — RED phase)
+// Import the hook under test
 // ---------------------------------------------------------------------------
 import { useVimNavigation } from '@/hooks/useVimNavigation'
 
@@ -127,6 +143,10 @@ describe('useVimNavigation', () => {
     hintState.hintMap = new Map()
     hintState.sessionHintMap = new Map()
     hintState.sessionHintTargetMap = new Map()
+
+    // Reset file viewer state
+    fileViewerState.openFiles = new Map()
+    fileViewerState.activeFilePath = null
   })
 
   afterEach(() => {
@@ -354,6 +374,270 @@ describe('useVimNavigation', () => {
 
       input1.remove()
       input2.remove()
+    })
+  })
+
+  // =========================================================================
+  // 3.1 — hjkl scroll tests (scroll only, no selection changes)
+  // =========================================================================
+  describe('hjkl sidebar scrolling', () => {
+    let sidebarContainer: HTMLDivElement
+    let mockScrollBy: ReturnType<typeof vi.fn>
+
+    beforeEach(() => {
+      sidebarContainer = document.createElement('div')
+      sidebarContainer.setAttribute('data-testid', 'sidebar-scroll-container')
+      mockScrollBy = vi.fn()
+      sidebarContainer.scrollBy = mockScrollBy
+      document.body.appendChild(sidebarContainer)
+    })
+
+    afterEach(() => {
+      sidebarContainer.remove()
+    })
+
+    it('j scrolls sidebar down', () => {
+      renderHook(() => useVimNavigation())
+      fireKey('j')
+      expect(mockScrollBy).toHaveBeenCalledWith({ top: 80, behavior: 'smooth' })
+    })
+
+    it('k scrolls sidebar up', () => {
+      renderHook(() => useVimNavigation())
+      fireKey('k')
+      expect(mockScrollBy).toHaveBeenCalledWith({ top: -80, behavior: 'smooth' })
+    })
+
+    it('ArrowDown scrolls sidebar down', () => {
+      renderHook(() => useVimNavigation())
+      fireKey('ArrowDown')
+      expect(mockScrollBy).toHaveBeenCalledWith({ top: 80, behavior: 'smooth' })
+    })
+
+    it('ArrowUp scrolls sidebar up', () => {
+      renderHook(() => useVimNavigation())
+      fireKey('ArrowUp')
+      expect(mockScrollBy).toHaveBeenCalledWith({ top: -80, behavior: 'smooth' })
+    })
+
+    it('j with no sidebar container is a no-op (no crash)', () => {
+      sidebarContainer.remove()
+      renderHook(() => useVimNavigation())
+      fireKey('j')
+      // Should not crash — scrollBy never called
+      expect(mockScrollBy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('hjkl session tab scrolling', () => {
+    let tabsContainer: HTMLDivElement
+    let mockScrollBy: ReturnType<typeof vi.fn>
+
+    beforeEach(() => {
+      tabsContainer = document.createElement('div')
+      tabsContainer.setAttribute('data-testid', 'session-tabs-scroll-container')
+      mockScrollBy = vi.fn()
+      tabsContainer.scrollBy = mockScrollBy
+      document.body.appendChild(tabsContainer)
+    })
+
+    afterEach(() => {
+      tabsContainer.remove()
+    })
+
+    it('l scrolls tabs right', () => {
+      renderHook(() => useVimNavigation())
+      fireKey('l')
+      expect(mockScrollBy).toHaveBeenCalledWith({ left: 150, behavior: 'smooth' })
+    })
+
+    it('h scrolls tabs left', () => {
+      renderHook(() => useVimNavigation())
+      fireKey('h')
+      expect(mockScrollBy).toHaveBeenCalledWith({ left: -150, behavior: 'smooth' })
+    })
+
+    it('ArrowRight scrolls tabs right', () => {
+      renderHook(() => useVimNavigation())
+      fireKey('ArrowRight')
+      expect(mockScrollBy).toHaveBeenCalledWith({ left: 150, behavior: 'smooth' })
+    })
+
+    it('ArrowLeft scrolls tabs left', () => {
+      renderHook(() => useVimNavigation())
+      fireKey('ArrowLeft')
+      expect(mockScrollBy).toHaveBeenCalledWith({ left: -150, behavior: 'smooth' })
+    })
+
+    it('l with no tabs container is a no-op (no crash)', () => {
+      tabsContainer.remove()
+      renderHook(() => useVimNavigation())
+      fireKey('l')
+      expect(mockScrollBy).not.toHaveBeenCalled()
+    })
+  })
+
+  // =========================================================================
+  // 3.2 — Panel navigation tests
+  // =========================================================================
+  describe('panel navigation', () => {
+    it('c opens right sidebar if collapsed and dispatches hive:right-sidebar-tab with changes', () => {
+      layoutState.rightSidebarCollapsed = true
+      renderHook(() => useVimNavigation())
+
+      const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+
+      fireKey('c')
+
+      expect(mockSetRightSidebarCollapsed).toHaveBeenCalledWith(false)
+      const tabEvent = dispatchSpy.mock.calls.find(
+        ([evt]) => evt instanceof Event && evt.type === 'hive:right-sidebar-tab'
+      )
+      expect(tabEvent).toBeDefined()
+      expect((tabEvent![0] as CustomEvent).detail?.tab).toBe('changes')
+
+      dispatchSpy.mockRestore()
+    })
+
+    it('f dispatches hive:right-sidebar-tab with files', () => {
+      renderHook(() => useVimNavigation())
+
+      const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+
+      fireKey('f')
+
+      const tabEvent = dispatchSpy.mock.calls.find(
+        ([evt]) => evt instanceof Event && evt.type === 'hive:right-sidebar-tab'
+      )
+      expect(tabEvent).toBeDefined()
+      expect((tabEvent![0] as CustomEvent).detail?.tab).toBe('files')
+
+      dispatchSpy.mockRestore()
+    })
+
+    it('d dispatches hive:right-sidebar-tab with diffs', () => {
+      renderHook(() => useVimNavigation())
+
+      const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+
+      fireKey('d')
+
+      const tabEvent = dispatchSpy.mock.calls.find(
+        ([evt]) => evt instanceof Event && evt.type === 'hive:right-sidebar-tab'
+      )
+      expect(tabEvent).toBeDefined()
+      expect((tabEvent![0] as CustomEvent).detail?.tab).toBe('diffs')
+
+      dispatchSpy.mockRestore()
+    })
+
+    it('s sets bottom panel tab to setup and opens right sidebar if collapsed', () => {
+      layoutState.rightSidebarCollapsed = true
+      renderHook(() => useVimNavigation())
+
+      fireKey('s')
+
+      expect(mockSetBottomPanelTab).toHaveBeenCalledWith('setup')
+      expect(mockSetRightSidebarCollapsed).toHaveBeenCalledWith(false)
+    })
+
+    it('r sets bottom panel tab to run and opens right sidebar', () => {
+      layoutState.rightSidebarCollapsed = true
+      renderHook(() => useVimNavigation())
+
+      fireKey('r')
+
+      expect(mockSetBottomPanelTab).toHaveBeenCalledWith('run')
+      expect(mockSetRightSidebarCollapsed).toHaveBeenCalledWith(false)
+    })
+
+    it('t sets bottom panel tab to terminal and opens right sidebar', () => {
+      layoutState.rightSidebarCollapsed = true
+      renderHook(() => useVimNavigation())
+
+      fireKey('t')
+
+      expect(mockSetBottomPanelTab).toHaveBeenCalledWith('terminal')
+      expect(mockSetRightSidebarCollapsed).toHaveBeenCalledWith(false)
+    })
+  })
+
+  // =========================================================================
+  // 3.3 — File tab navigation tests
+  // =========================================================================
+  describe('file tab navigation', () => {
+    it('[ switches to previous file tab', () => {
+      fileViewerState.openFiles = new Map([
+        ['file1.ts', { type: 'file', path: 'file1.ts' }],
+        ['file2.ts', { type: 'file', path: 'file2.ts' }],
+        ['file3.ts', { type: 'file', path: 'file3.ts' }]
+      ])
+      fileViewerState.activeFilePath = 'file2.ts'
+      renderHook(() => useVimNavigation())
+
+      fireKey('[')
+
+      expect(mockSetActiveFile).toHaveBeenCalledWith('file1.ts')
+    })
+
+    it('] switches to next file tab', () => {
+      fileViewerState.openFiles = new Map([
+        ['file1.ts', { type: 'file', path: 'file1.ts' }],
+        ['file2.ts', { type: 'file', path: 'file2.ts' }],
+        ['file3.ts', { type: 'file', path: 'file3.ts' }]
+      ])
+      fileViewerState.activeFilePath = 'file2.ts'
+      renderHook(() => useVimNavigation())
+
+      fireKey(']')
+
+      expect(mockSetActiveFile).toHaveBeenCalledWith('file3.ts')
+    })
+
+    it('[ at first tab is clamped', () => {
+      fileViewerState.openFiles = new Map([
+        ['file1.ts', { type: 'file', path: 'file1.ts' }],
+        ['file2.ts', { type: 'file', path: 'file2.ts' }]
+      ])
+      fileViewerState.activeFilePath = 'file1.ts'
+      renderHook(() => useVimNavigation())
+
+      fireKey('[')
+
+      expect(mockSetActiveFile).not.toHaveBeenCalled()
+    })
+
+    it('] at last tab is clamped', () => {
+      fileViewerState.openFiles = new Map([
+        ['file1.ts', { type: 'file', path: 'file1.ts' }],
+        ['file2.ts', { type: 'file', path: 'file2.ts' }]
+      ])
+      fileViewerState.activeFilePath = 'file2.ts'
+      renderHook(() => useVimNavigation())
+
+      fireKey(']')
+
+      expect(mockSetActiveFile).not.toHaveBeenCalled()
+    })
+
+    it('with no open files, [ is a no-op', () => {
+      fileViewerState.openFiles = new Map()
+      fileViewerState.activeFilePath = null
+      renderHook(() => useVimNavigation())
+
+      fireKey('[')
+
+      expect(mockSetActiveFile).not.toHaveBeenCalled()
+    })
+
+    it('with no open files, ] is a no-op', () => {
+      fileViewerState.openFiles = new Map()
+      fileViewerState.activeFilePath = null
+      renderHook(() => useVimNavigation())
+
+      fireKey(']')
+
+      expect(mockSetActiveFile).not.toHaveBeenCalled()
     })
   })
 })

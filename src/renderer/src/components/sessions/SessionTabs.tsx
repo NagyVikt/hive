@@ -930,6 +930,7 @@ export function SessionTabs(): React.JSX.Element | null {
         ref={tabsContainerRef}
         className="flex-1 flex overflow-x-auto scrollbar-hide"
         style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        data-testid="session-tabs-scroll-container"
       >
         {orderedSessions.length === 0 &&
         fileTabs.length === 0 &&
