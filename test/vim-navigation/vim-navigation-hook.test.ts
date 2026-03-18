@@ -72,6 +72,28 @@ vi.mock('@/stores/useHintStore', () => ({
   }
 }))
 
+// Session 4 — mock dispatchHintAction from hint-utils
+
+const mockDispatchHintAction = vi.fn()
+
+vi.mock('@/lib/hint-utils', () => ({
+  dispatchHintAction: (...args: unknown[]) => mockDispatchHintAction(...args)
+}))
+
+// Session 4 — mock useSessionStore
+
+const mockSetActiveSession = vi.fn()
+
+const sessionState = {
+  setActiveSession: mockSetActiveSession
+}
+
+vi.mock('@/stores/useSessionStore', () => ({
+  useSessionStore: {
+    getState: () => sessionState
+  }
+}))
+
 // Session 3 — additional store mocks for panel + file tab navigation
 
 const mockSetActiveFile = vi.fn()
@@ -638,6 +660,113 @@ describe('useVimNavigation', () => {
       fireKey(']')
 
       expect(mockSetActiveFile).not.toHaveBeenCalled()
+    })
+  })
+
+  // =========================================================================
+  // 4.1 — Hint dispatch tests
+  // =========================================================================
+  describe('hint dispatch', () => {
+    it('uppercase A in idle mode calls enterPending(A)', () => {
+      hintState.mode = 'idle'
+      renderHook(() => useVimNavigation())
+
+      fireKey('A')
+
+      expect(mockEnterPending).toHaveBeenCalledWith('A')
+    })
+
+    it('second char a with pending A + hintMap has Aa calls dispatchHintAction', () => {
+      hintState.mode = 'pending'
+      hintState.pendingChar = 'A'
+      hintState.hintMap = new Map([['w1', 'Aa']])
+      renderHook(() => useVimNavigation())
+
+      fireKey('a')
+
+      expect(mockDispatchHintAction).toHaveBeenCalledWith('w1')
+      expect(mockExitPending).toHaveBeenCalled()
+    })
+
+    it('second char matching session hint calls setActiveSession + setActiveFile(null) + scrollIntoView', () => {
+      vi.useFakeTimers()
+      const tab = document.createElement('div')
+      tab.setAttribute('data-testid', 'session-tab-sess-123')
+      tab.scrollIntoView = vi.fn()
+      document.body.appendChild(tab)
+
+      try {
+        hintState.mode = 'pending'
+        hintState.pendingChar = 'S'
+        hintState.sessionHintTargetMap = new Map([['Sa', 'sess-123']])
+
+        renderHook(() => useVimNavigation())
+
+        fireKey('a')
+
+        expect(mockSetActiveSession).toHaveBeenCalledWith('sess-123')
+        expect(mockSetActiveFile).toHaveBeenCalledWith(null)
+        expect(mockExitPending).toHaveBeenCalled()
+
+        vi.advanceTimersByTime(50)
+
+        expect(tab.scrollIntoView).toHaveBeenCalledWith({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'nearest'
+        })
+      } finally {
+        tab.remove()
+        vi.useRealTimers()
+      }
+    })
+
+    it('second uppercase letter restarts pending with new char', () => {
+      hintState.mode = 'pending'
+      hintState.pendingChar = 'A'
+      renderHook(() => useVimNavigation())
+
+      fireKey('B')
+
+      expect(mockEnterPending).toHaveBeenCalledWith('B')
+      expect(mockExitPending).not.toHaveBeenCalled()
+    })
+
+    it('I in pending mode restarts pending instead of entering insert mode', () => {
+      hintState.mode = 'pending'
+      hintState.pendingChar = 'A'
+      renderHook(() => useVimNavigation())
+
+      fireKey('I')
+
+      expect(mockEnterPending).toHaveBeenCalledWith('I')
+      expect(mockEnterInsertMode).not.toHaveBeenCalled()
+      expect(mockExitPending).not.toHaveBeenCalled()
+    })
+
+    it('non-matching second char calls exitPending()', () => {
+      hintState.mode = 'pending'
+      hintState.pendingChar = 'A'
+      hintState.hintMap = new Map([['w1', 'Ab']])
+      hintState.sessionHintTargetMap = new Map()
+      renderHook(() => useVimNavigation())
+
+      fireKey('z')
+
+      expect(mockExitPending).toHaveBeenCalled()
+      expect(mockDispatchHintAction).not.toHaveBeenCalled()
+    })
+
+    it('project hint match (key starts with project:) calls toggleProjectExpanded via dispatchHintAction', () => {
+      hintState.mode = 'pending'
+      hintState.pendingChar = 'A'
+      hintState.hintMap = new Map([['project:p1', 'Aa']])
+      renderHook(() => useVimNavigation())
+
+      fireKey('a')
+
+      expect(mockDispatchHintAction).toHaveBeenCalledWith('project:p1')
+      expect(mockExitPending).toHaveBeenCalled()
     })
   })
 })

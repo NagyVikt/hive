@@ -3,9 +3,13 @@ import { useVimModeStore } from '@/stores/useVimModeStore'
 import { useCommandPaletteStore } from '@/stores/useCommandPaletteStore'
 import { useLayoutStore } from '@/stores/useLayoutStore'
 import { useFileViewerStore } from '@/stores/useFileViewerStore'
+import { useHintStore } from '@/stores/useHintStore'
+import { useSessionStore } from '@/stores/useSessionStore'
+import { dispatchHintAction } from '@/lib/hint-utils'
 
 const SIDEBAR_SCROLL_STEP = 80
 const TABS_SCROLL_STEP = 150
+const SCROLL_AFTER_NAVIGATE_DELAY = 50
 
 function isInputElement(el: Element | null): boolean {
   if (!el) return false
@@ -59,6 +63,7 @@ export function useVimNavigation(): void {
 
       const vim = useVimModeStore.getState()
       const { isOpen: commandPaletteOpen } = useCommandPaletteStore.getState()
+      const hint = useHintStore.getState()
 
       if (vim.mode === 'insert' && event.key !== 'Escape') return
       if (document.querySelector('[data-radix-dialog-content]')) return
@@ -75,6 +80,50 @@ export function useVimNavigation(): void {
           event.preventDefault()
           return
         }
+        return
+      }
+
+      // --- Hint dispatch: pending mode (second char) ---
+      // Must come before I/? handlers so pending state is resolved first
+      if (hint.mode === 'pending' && hint.pendingChar) {
+        const isUppercase = /^[A-Z]$/.test(event.key)
+
+        // Another uppercase → restart pending with the new char
+        if (isUppercase) {
+          hint.enterPending(event.key)
+          event.preventDefault()
+          return
+        }
+
+        const code = hint.pendingChar + event.key
+
+        // Check worktree/project hintMap (value→key reverse lookup)
+        for (const [key, value] of hint.hintMap.entries()) {
+          if (value === code) {
+            dispatchHintAction(key)
+            hint.exitPending()
+            event.preventDefault()
+            return
+          }
+        }
+
+        // Check session hints (code→sessionId direct lookup)
+        const sessionId = hint.sessionHintTargetMap.get(code)
+        if (sessionId) {
+          useSessionStore.getState().setActiveSession(sessionId)
+          useFileViewerStore.getState().setActiveFile(null)
+          hint.exitPending()
+          setTimeout(() => {
+            const tab = document.querySelector(`[data-testid="session-tab-${sessionId}"]`)
+            tab?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' })
+          }, SCROLL_AFTER_NAVIGATE_DELAY)
+          event.preventDefault()
+          return
+        }
+
+        // No match → exit pending
+        hint.exitPending()
+        event.preventDefault()
         return
       }
 
@@ -163,6 +212,13 @@ export function useVimNavigation(): void {
 
       if (event.key === ']') {
         navigateFileTab(1)
+        event.preventDefault()
+        return
+      }
+
+      // --- Hint dispatch: idle mode → uppercase starts pending ---
+      if (hint.mode === 'idle' && /^[A-Z]$/.test(event.key)) {
+        hint.enterPending(event.key)
         event.preventDefault()
         return
       }
