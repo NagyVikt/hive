@@ -81,9 +81,8 @@ export function assignSessionHints(sessionIds: string[]): {
 
 /**
  * Build hint targets for vim normal mode (no filter active).
- * Includes project targets for all projects and worktree targets
- * only for expanded projects. Interleaves: project → its worktrees.
- * Does NOT include 'plus' targets (those are filter-mode only).
+ * Includes project, plus, and worktree targets.
+ * Interleaves: project → plus → its worktrees (for expanded projects).
  */
 export function buildNormalModeTargets(
   projects: Array<{ id: string; name: string }>,
@@ -93,6 +92,7 @@ export function buildNormalModeTargets(
   const targets: HintTarget[] = []
   for (const project of projects) {
     targets.push({ kind: 'project', projectId: project.id })
+    targets.push({ kind: 'plus', projectId: project.id })
     if (expandedProjectIds.has(project.id)) {
       const wts = worktreesByProject.get(project.id) ?? []
       for (const wt of wts) {

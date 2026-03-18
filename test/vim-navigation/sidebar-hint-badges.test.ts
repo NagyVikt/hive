@@ -42,7 +42,7 @@ describe('sidebar hint badges — normal mode', () => {
       expect(worktreeTargets.map((t) => t.worktreeId)).toEqual(['w1', 'w2'])
     })
 
-    it('does NOT include plus targets (only project + worktree)', () => {
+    it('includes plus targets for every project', () => {
       const expandedProjectIds = new Set(['p1'])
       const worktreesByProject = new Map([
         ['p1', [{ id: 'w1', project_id: 'p1' }]]
@@ -51,10 +51,11 @@ describe('sidebar hint badges — normal mode', () => {
       const targets = buildNormalModeTargets(projects, expandedProjectIds, worktreesByProject)
       const plusTargets = targets.filter((t) => t.kind === 'plus')
 
-      expect(plusTargets).toHaveLength(0)
+      expect(plusTargets).toHaveLength(3)
+      expect(plusTargets.map((t) => t.projectId)).toEqual(['p1', 'p2', 'p3'])
     })
 
-    it('returns only project targets when no projects are expanded', () => {
+    it('returns project + plus targets when no projects are expanded', () => {
       const expandedProjectIds = new Set<string>()
       const worktreesByProject = new Map([
         ['p1', [{ id: 'w1', project_id: 'p1' }]]
@@ -63,6 +64,7 @@ describe('sidebar hint badges — normal mode', () => {
       const targets = buildNormalModeTargets(projects, expandedProjectIds, worktreesByProject)
 
       expect(targets.filter((t) => t.kind === 'project')).toHaveLength(3)
+      expect(targets.filter((t) => t.kind === 'plus')).toHaveLength(3)
       expect(targets.filter((t) => t.kind === 'worktree')).toHaveLength(0)
     })
 
@@ -75,9 +77,16 @@ describe('sidebar hint badges — normal mode', () => {
 
       const targets = buildNormalModeTargets(projects, expandedProjectIds, worktreesByProject)
 
-      // Expected order: p1 project, w1, p2 project, w2, w3, p3 project
-      expect(targets.map((t) => t.kind === 'project' ? `project:${t.projectId}` : t.worktreeId)).toEqual([
-        'project:p1', 'w1', 'project:p2', 'w2', 'w3', 'project:p3'
+      // Expected order: p1 project, p1 plus, w1, p2 project, p2 plus, w2, w3, p3 project, p3 plus
+      const labels = targets.map((t) => {
+        if (t.kind === 'project') return `project:${t.projectId}`
+        if (t.kind === 'plus') return `plus:${t.projectId}`
+        return t.worktreeId
+      })
+      expect(labels).toEqual([
+        'project:p1', 'plus:p1', 'w1',
+        'project:p2', 'plus:p2', 'w2', 'w3',
+        'project:p3', 'plus:p3'
       ])
     })
 
@@ -93,6 +102,7 @@ describe('sidebar hint badges — normal mode', () => {
       const targets = buildNormalModeTargets(projects, expandedProjectIds, worktreesByProject)
 
       expect(targets.filter((t) => t.kind === 'project')).toHaveLength(3)
+      expect(targets.filter((t) => t.kind === 'plus')).toHaveLength(3)
       expect(targets.filter((t) => t.kind === 'worktree')).toHaveLength(0)
     })
   })
@@ -120,7 +130,7 @@ describe('sidebar hint badges — normal mode', () => {
       const targets = buildNormalModeTargets(projects, expandedProjectIds, worktreesByProject)
       const { hintMap } = assignHints(targets, undefined, 'S')
 
-      expect(hintMap.size).toBe(2) // project + worktree
+      expect(hintMap.size).toBe(3) // project + plus + worktree
       for (const code of hintMap.values()) {
         expect(code).toMatch(/^[A-RT-Z][a-z0-9]$/) // no S prefix
       }
