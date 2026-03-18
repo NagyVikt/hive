@@ -81,23 +81,26 @@ export function assignSessionHints(sessionIds: string[]): {
 
 /**
  * Build hint targets for vim normal mode (no filter active).
- * Includes project, plus, and worktree targets.
- * Interleaves: project → plus → its worktrees (for expanded projects).
+ * Two-pass approach for stable hint codes:
+ *   Pass 1: all project + plus targets (in display order)
+ *   Pass 2: all worktree targets (regardless of expanded state)
+ * This ensures expanding/collapsing a project never reshuffles hint codes.
  */
 export function buildNormalModeTargets(
   projects: Array<{ id: string; name: string }>,
-  expandedProjectIds: Set<string>,
   worktreesByProject: Map<string, Array<{ id: string; project_id: string }>>
 ): HintTarget[] {
   const targets: HintTarget[] = []
+  // Pass 1: all project + plus targets
   for (const project of projects) {
     targets.push({ kind: 'project', projectId: project.id })
     targets.push({ kind: 'plus', projectId: project.id })
-    if (expandedProjectIds.has(project.id)) {
-      const wts = worktreesByProject.get(project.id) ?? []
-      for (const wt of wts) {
-        targets.push({ kind: 'worktree', worktreeId: wt.id, projectId: project.id })
-      }
+  }
+  // Pass 2: all worktree targets (regardless of expanded/collapsed state)
+  for (const project of projects) {
+    const wts = worktreesByProject.get(project.id) ?? []
+    for (const wt of wts) {
+      targets.push({ kind: 'worktree', worktreeId: wt.id, projectId: project.id })
     }
   }
   return targets
@@ -129,6 +132,11 @@ export function dispatchHintAction(key: string): void {
   } else {
     const target = useHintStore.getState().hintTargetMap.get(key)
     if (!target) return
+    // Auto-expand the project if collapsed so the worktree becomes visible
+    const { expandedProjectIds, toggleProjectExpanded } = useProjectStore.getState()
+    if (!expandedProjectIds.has(target.projectId)) {
+      toggleProjectExpanded(target.projectId)
+    }
     useWorktreeStore.getState().selectWorktree(key)
     useProjectStore.getState().selectProject(target.projectId)
   }

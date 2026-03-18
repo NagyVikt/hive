@@ -11,7 +11,7 @@ interface ProjectListProps {
 }
 
 export function ProjectList({ onAddProject, filterQuery }: ProjectListProps): React.JSX.Element {
-  const { projects, isLoading, error, loadProjects, reorderProjects, expandedProjectIds } = useProjectStore()
+  const { projects, isLoading, error, loadProjects, reorderProjects } = useProjectStore()
   const worktreesByProject = useWorktreeStore((s) => s.worktreesByProject)
   const { setHints, clearHints, setFilterActive } = useHintStore()
   const vimMode = useVimModeStore((s) => s.mode)
@@ -125,17 +125,17 @@ export function ProjectList({ onAddProject, filterQuery }: ProjectListProps): Re
     }
 
     if (vimModeEnabled && vimMode === 'normal') {
-      // Normal mode (no filter): project targets + worktree targets for expanded projects only
+      // Normal mode (no filter): all project targets first, then all worktree targets
+      // (independent of expanded state so hints stay stable on expand/collapse)
       const targets = buildNormalModeTargets(
         filteredProjects.map((fp) => fp.project),
-        expandedProjectIds,
         worktreesByProject
       )
       return assignHints(targets, undefined, 'S')
     }
 
     return { hintMap: new Map<string, string>(), hintTargetMap: new Map<string, HintTarget>() }
-  }, [filteredProjects, worktreesByProject, filterQuery, vimModeEnabled, vimMode, expandedProjectIds])
+  }, [filteredProjects, worktreesByProject, filterQuery, vimModeEnabled, vimMode])
 
   // Immediately set filterActive when filter text changes — this drives project expansion
   // independently of worktree loading (breaking the circular dependency)

@@ -156,6 +156,7 @@ describe('hint-utils extensions', () => {
         selectWorktree
       } as any)
       vi.mocked(useProjectStore.getState).mockReturnValue({
+        expandedProjectIds: new Set<string>(),
         selectProject,
         toggleProjectExpanded: vi.fn()
       } as any)
@@ -163,6 +164,54 @@ describe('hint-utils extensions', () => {
       dispatchHintAction('w1')
       expect(selectWorktree).toHaveBeenCalledWith('w1')
       expect(selectProject).toHaveBeenCalledWith('p1')
+    })
+
+    it('auto-expands collapsed project when dispatching worktree hint', async () => {
+      const { useHintStore } = await import('@/stores/useHintStore')
+      const { useWorktreeStore } = await import('@/stores/useWorktreeStore')
+      const { useProjectStore } = await import('@/stores/useProjectStore')
+
+      const toggleProjectExpanded = vi.fn()
+      vi.mocked(useHintStore.getState).mockReturnValue({
+        hintTargetMap: new Map([
+          ['w1', { kind: 'worktree', worktreeId: 'w1', projectId: 'p1' }]
+        ])
+      } as any)
+      vi.mocked(useWorktreeStore.getState).mockReturnValue({
+        selectWorktree: vi.fn()
+      } as any)
+      vi.mocked(useProjectStore.getState).mockReturnValue({
+        expandedProjectIds: new Set<string>(), // p1 is NOT expanded
+        selectProject: vi.fn(),
+        toggleProjectExpanded
+      } as any)
+
+      dispatchHintAction('w1')
+      expect(toggleProjectExpanded).toHaveBeenCalledWith('p1')
+    })
+
+    it('does NOT toggle project when it is already expanded for worktree hint', async () => {
+      const { useHintStore } = await import('@/stores/useHintStore')
+      const { useWorktreeStore } = await import('@/stores/useWorktreeStore')
+      const { useProjectStore } = await import('@/stores/useProjectStore')
+
+      const toggleProjectExpanded = vi.fn()
+      vi.mocked(useHintStore.getState).mockReturnValue({
+        hintTargetMap: new Map([
+          ['w1', { kind: 'worktree', worktreeId: 'w1', projectId: 'p1' }]
+        ])
+      } as any)
+      vi.mocked(useWorktreeStore.getState).mockReturnValue({
+        selectWorktree: vi.fn()
+      } as any)
+      vi.mocked(useProjectStore.getState).mockReturnValue({
+        expandedProjectIds: new Set(['p1']), // p1 IS expanded
+        selectProject: vi.fn(),
+        toggleProjectExpanded
+      } as any)
+
+      dispatchHintAction('w1')
+      expect(toggleProjectExpanded).not.toHaveBeenCalled()
     })
   })
 })
