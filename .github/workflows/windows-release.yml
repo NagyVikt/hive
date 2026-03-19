@@ -34,8 +34,8 @@ jobs:
         run: |
           mkdir -p win-natives
 
-          # better-sqlite3
-          SQLITE_NODE=$(find node_modules/better-sqlite3 -name "better_sqlite3.node" | head -1)
+          # better-sqlite3 (-L follows pnpm symlinks)
+          SQLITE_NODE=$(find -L node_modules/better-sqlite3 -name "better_sqlite3.node" | head -1)
           if [ -n "$SQLITE_NODE" ]; then
             cp "$SQLITE_NODE" win-natives/better_sqlite3.node
             echo "✓ better_sqlite3.node ($(du -h win-natives/better_sqlite3.node | cut -f1))"
@@ -44,7 +44,7 @@ jobs:
           fi
 
           # node-pty
-          PTY_NODE=$(find node_modules/node-pty -name "pty.node" -o -name "conpty.node" | head -1)
+          PTY_NODE=$(find -L node_modules/node-pty -name "pty.node" -o -name "conpty.node" | head -1)
           if [ -n "$PTY_NODE" ]; then
             BASENAME=$(basename "$PTY_NODE")
             cp "$PTY_NODE" "win-natives/$BASENAME"
@@ -54,7 +54,7 @@ jobs:
           fi
 
           # Also grab the winpty-agent.exe and winpty.dll if they exist (node-pty needs these on older Windows)
-          find node_modules/node-pty -name "*.exe" -o -name "*.dll" | while read f; do
+          find -L node_modules/node-pty -name "*.exe" -o -name "*.dll" | while read f; do
             cp "$f" "win-natives/$(basename "$f")"
             echo "✓ $(basename "$f")"
           done
