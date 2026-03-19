@@ -231,9 +231,10 @@ echo ""
 info "This will:"
 echo "  1. Bump package.json to ${NEW_VERSION}"
 echo "  2. Commit, tag v${NEW_VERSION}, and push to origin"
-echo "  3. Build for arm64 + x64 (sign + notarize)"
-echo "  4. Publish DMGs/ZIPs to GitHub Release v${NEW_VERSION} (prerelease)"
-echo "  5. Update Homebrew canary cask with new SHA256 checksums"
+echo "  3. Build macOS for arm64 + x64 (sign + notarize)"
+echo "  4. Build Windows x64 (NSIS installer + ZIP)"
+echo "  5. Publish all artifacts to GitHub Release v${NEW_VERSION} (prerelease)"
+echo "  6. Update Homebrew canary cask with new SHA256 checksums"
 echo ""
 if ! $AUTO_YES; then
   read -rp "Proceed? [Y/n] " confirm
@@ -415,12 +416,36 @@ info "This will take several minutes (notarization is slow)."
 export GH_TOKEN
 GH_TOKEN=$(gh auth token)
 
+WIN_BUILD_OK=false
 if $DRY_RUN; then
   warn "[DRY RUN] Skipping electron-builder publish"
   warn "[DRY RUN] Would run: pnpm exec electron-builder --mac --publish always -c.publish.channel=canary"
+  warn "[DRY RUN] Would run: pnpm exec electron-builder --win --publish always -c.publish.channel=canary"
 else
   pnpm exec electron-builder --mac --publish always -c.publish.channel=canary
-  ok "Assets uploaded to GitHub Releases"
+  ok "macOS assets uploaded to GitHub Releases"
+
+  # ── Phase 4.5: Windows build ──────────────────────────────────────
+  # Windows build is non-fatal — macOS artifacts are already published.
+  tg "🪟 Hive canary v${NEW_VERSION} — building Windows"
+  if bash "$SCRIPT_DIR/prepare-win-deps.sh"; then
+    info "Packaging Windows canary build..."
+    info "This may take a few minutes."
+    # --config.npmRebuild=false: skip native module rebuild (we prepared Windows binaries manually)
+    if pnpm exec electron-builder --win --publish always -c.publish.channel=canary --config.npmRebuild=false; then
+      WIN_BUILD_OK=true
+      ok "Windows assets uploaded to GitHub Releases"
+    else
+      warn "Windows build failed — macOS canary release will continue without Windows artifacts"
+      tg "⚠️ Hive canary v${NEW_VERSION} — Windows build failed"
+    fi
+  else
+    warn "Windows dependency preparation failed — skipping Windows build"
+    tg "⚠️ Hive canary v${NEW_VERSION} — Windows deps preparation failed"
+  fi
+
+  # Always restore macOS native binaries so the working tree stays usable for development
+  bash "$SCRIPT_DIR/prepare-win-deps.sh" --restore 2>/dev/null || true
 
   # Mark as prerelease and attach notes
   info "Publishing release as prerelease..."
@@ -505,15 +530,28 @@ echo "  GitHub Release: https://github.com/${REPO}/releases/tag/v${NEW_VERSION}"
 echo "  Homebrew:       brew install --cask morapelker/hive/hive-canary"
 echo ""
 echo "  Assets published:"
-echo "    - Hive-${NEW_VERSION}-arm64.dmg  (Apple Silicon)"
-echo "    - Hive-${NEW_VERSION}.dmg        (Intel)"
-echo "    - Hive-${NEW_VERSION}-arm64-mac.zip"
-echo "    - Hive-${NEW_VERSION}-mac.zip"
-echo "    - canary-mac.yml (auto-updater)"
+echo "    macOS:"
+echo "      - Hive-${NEW_VERSION}-arm64.dmg  (Apple Silicon)"
+echo "      - Hive-${NEW_VERSION}.dmg        (Intel)"
+echo "      - Hive-${NEW_VERSION}-arm64-mac.zip"
+echo "      - Hive-${NEW_VERSION}-mac.zip"
+echo "      - canary-mac.yml (auto-updater)"
+if $WIN_BUILD_OK; then
+  echo "    Windows:"
+  echo "      - Hive-Setup-${NEW_VERSION}.exe  (NSIS installer)"
+  echo "      - Hive-${NEW_VERSION}-win.zip    (portable)"
+  echo "      - canary.yml (auto-updater)"
+else
+  echo "    Windows: ⚠ build failed (macOS release published without Windows artifacts)"
+fi
 echo ""
 if $DRY_RUN; then
   warn "This was a DRY RUN — nothing was actually published."
 fi
 
 RELEASE_SUCCEEDED=true
-tg "✅ Hive canary v${NEW_VERSION} — released successfully"
+if $WIN_BUILD_OK; then
+  tg "✅ Hive canary v${NEW_VERSION} — released successfully (macOS + Windows)"
+else
+  tg "✅ Hive canary v${NEW_VERSION} — released (macOS only, Windows build failed)"
+fi
