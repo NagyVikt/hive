@@ -9,6 +9,9 @@ on:
     branches:
       - windows-release-artifact
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: windows-latest
@@ -88,10 +91,12 @@ jobs:
           tar czf ../win-natives.tar.gz .
           cd ..
 
-          # Create or update the release
-          gh release create win-natives-v1 \
-            --title "Windows Native Modules" \
-            --notes "Prebuilt Windows native .node binaries for cross-compilation from macOS" \
-            --prerelease 2>/dev/null || true
+          # Create the release if it doesn't already exist
+          if ! gh release view win-natives-v1 &>/dev/null; then
+            gh release create win-natives-v1 \
+              --title "Windows Native Modules" \
+              --notes "Prebuilt Windows native .node binaries for cross-compilation from macOS" \
+              --prerelease
+          fi
 
           gh release upload win-natives-v1 win-natives.tar.gz --clobber
