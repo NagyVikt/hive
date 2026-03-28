@@ -1,0 +1,40 @@
+const STORAGE_KEY = 'hive-web-auth'
+
+interface WebAuthConfig {
+  serverUrl: string
+  apiKey: string
+}
+
+export function getWebAuth(): WebAuthConfig | null {
+  // Check URL params first (for deep linking)
+  const params = new URLSearchParams(window.location.search)
+  const server = params.get('server')
+  const key = params.get('key')
+  if (server && key) {
+    const config = { serverUrl: server, apiKey: key }
+    saveWebAuth(config)
+    // Clean URL
+    const url = new URL(window.location.href)
+    url.searchParams.delete('server')
+    url.searchParams.delete('key')
+    window.history.replaceState({}, '', url.toString())
+    return config
+  }
+
+  // Check localStorage
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (!stored) return null
+  try {
+    return JSON.parse(stored) as WebAuthConfig
+  } catch {
+    return null
+  }
+}
+
+export function saveWebAuth(config: WebAuthConfig): void {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(config))
+}
+
+export function clearWebAuth(): void {
+  localStorage.removeItem(STORAGE_KEY)
+}
