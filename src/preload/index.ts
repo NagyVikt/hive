@@ -97,6 +97,7 @@ const db = {
       name?: string | null
       opencode_session_id?: string | null
       agent_sdk?: 'opencode' | 'claude-code' | 'codex' | 'terminal'
+      mode?: 'build' | 'plan'
       model_provider_id?: string | null
       model_id?: string | null
       model_variant?: string | null
@@ -354,7 +355,8 @@ const worktreeOps = {
     projectPath: string,
     projectName: string,
     branchName: string,
-    prNumber?: number
+    prNumber?: number,
+    nameHint?: string
   ): Promise<{
     success: boolean
     worktree?: {
@@ -374,7 +376,8 @@ const worktreeOps = {
       projectPath,
       projectName,
       branchName,
-      prNumber
+      prNumber,
+      nameHint
     }),
 
   // Subscribe to branch-renamed events (auto-rename from main process)
@@ -1741,6 +1744,66 @@ const analyticsOps = {
   isEnabled: () => ipcRenderer.invoke('telemetry:isEnabled') as Promise<boolean>
 }
 
+const kanban = {
+  ticket: {
+    create: (data: {
+      project_id: string
+      title: string
+      description?: string | null
+      attachments?: unknown[]
+      column?: 'todo' | 'in_progress' | 'review' | 'done'
+      sort_order?: number
+      current_session_id?: string | null
+      worktree_id?: string | null
+      mode?: 'build' | 'plan' | null
+      plan_ready?: boolean
+    }) => ipcRenderer.invoke('kanban:ticket:create', data),
+    get: (id: string) => ipcRenderer.invoke('kanban:ticket:get', id),
+    getByProject: (projectId: string, includeArchived?: boolean) =>
+      ipcRenderer.invoke('kanban:ticket:getByProject', projectId, includeArchived),
+    update: (
+      id: string,
+      data: {
+        title?: string
+        description?: string | null
+        attachments?: unknown[]
+        column?: 'todo' | 'in_progress' | 'review' | 'done'
+        sort_order?: number
+        current_session_id?: string | null
+        worktree_id?: string | null
+        mode?: 'build' | 'plan' | null
+        plan_ready?: boolean
+      }
+    ) => ipcRenderer.invoke('kanban:ticket:update', id, data),
+    delete: (id: string) => ipcRenderer.invoke('kanban:ticket:delete', id),
+    archive: (id: string) => ipcRenderer.invoke('kanban:ticket:archive', id),
+    archiveAllDone: (projectId: string) => ipcRenderer.invoke('kanban:ticket:archiveAllDone', projectId),
+    unarchive: (id: string) => ipcRenderer.invoke('kanban:ticket:unarchive', id),
+    move: (id: string, column: 'todo' | 'in_progress' | 'review' | 'done', sortOrder: number) =>
+      ipcRenderer.invoke('kanban:ticket:move', id, column, sortOrder),
+    reorder: (id: string, sortOrder: number) =>
+      ipcRenderer.invoke('kanban:ticket:reorder', id, sortOrder),
+    getBySession: (sessionId: string) =>
+      ipcRenderer.invoke('kanban:ticket:getBySession', sessionId)
+  },
+  simpleMode: {
+    toggle: (projectId: string, enabled: boolean) =>
+      ipcRenderer.invoke('kanban:simpleMode:toggle', projectId, enabled)
+  },
+  followup: {
+    create: (data: {
+      ticket_id: string
+      content: string
+      role?: 'user' | 'assistant'
+      mode: 'build' | 'plan'
+      session_id?: string | null
+      source?: 'direct' | 'supercharge' | 'error_retry'
+    }) => ipcRenderer.invoke('kanban:followup:create', data),
+    getByTicket: (ticketId: string) =>
+      ipcRenderer.invoke('kanban:followup:getByTicket', ticketId)
+  }
+}
+
 // Use `contextBridge` APIs to expose Electron APIs to
 // renderer only if context isolation is enabled, otherwise
 // just add to the DOM global.
@@ -1762,6 +1825,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('connectionOps', connectionOps)
     contextBridge.exposeInMainWorld('usageOps', usageOps)
     contextBridge.exposeInMainWorld('analyticsOps', analyticsOps)
+    contextBridge.exposeInMainWorld('kanban', kanban)
   } catch (error) {
     console.error(error)
   }
@@ -1798,4 +1862,6 @@ if (process.contextIsolated) {
   window.usageOps = usageOps
   // @ts-expect-error (define in dts)
   window.analyticsOps = analyticsOps
+  // @ts-expect-error (define in dts)
+  window.kanban = kanban
 }

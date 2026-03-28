@@ -14,6 +14,7 @@ import {
   FileSearch,
   X
 } from 'lucide-react'
+import { KanbanIcon } from '@/components/kanban/KanbanIcon'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -34,6 +35,8 @@ import { useSessionStore } from '@/stores/useSessionStore'
 import { useGitStore } from '@/stores/useGitStore'
 import { useWorktreeStatusStore } from '@/stores/useWorktreeStatusStore'
 import { useVimModeStore } from '@/stores/useVimModeStore'
+import { useKanbanStore } from '@/stores/useKanbanStore'
+import { useFileViewerStore } from '@/stores/useFileViewerStore'
 import { QuickActions } from './QuickActions'
 import { usePRDetection } from '@/hooks/usePRDetection'
 import hiveLogo from '@/assets/icon.png'
@@ -77,6 +80,8 @@ export function Header(): React.JSX.Element {
   const vimMode = useVimModeStore((s) => s.mode)
   const vimModeEnabled = useSettingsStore((s) => s.vimModeEnabled)
   const showVimHints = vimModeEnabled && vimMode === 'normal'
+  const isBoardViewActive = useKanbanStore((s) => s.isBoardViewActive)
+  const toggleBoardView = useKanbanStore((s) => s.toggleBoardView)
   const [conflictFixFlow, setConflictFixFlow] = useState<ConflictFixFlow | null>(null)
 
   // Monitor PR session stream events for PR URL detection
@@ -848,6 +853,29 @@ export function Header(): React.JSX.Element {
               </DropdownMenuContent>
             </DropdownMenu>
           </Popover>
+        )}
+        {selectedProjectId && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              if (!isBoardViewActive) {
+                // Clear any active file/diff/context views so the board can render
+                const fileStore = useFileViewerStore.getState()
+                fileStore.setActiveFile(null)
+                fileStore.clearActiveDiff()
+                fileStore.closeContextEditor()
+              }
+              toggleBoardView()
+            }}
+            title={isBoardViewActive ? 'Close Board' : 'Open Board'}
+            data-testid="kanban-board-toggle"
+            className={cn(
+              isBoardViewActive && 'bg-accent text-accent-foreground'
+            )}
+          >
+            <KanbanIcon className="h-4 w-4" />
+          </Button>
         )}
         <Button
           variant="ghost"

@@ -6,7 +6,8 @@ import {
   useThemeStore,
   useSessionHistoryStore,
   useLayoutStore,
-  useSettingsStore
+  useSettingsStore,
+  useKanbanStore
 } from '@/stores'
 import { THEME_PRESETS } from '@/lib/themes'
 import { useGitStore } from '@/stores/useGitStore'
@@ -36,6 +37,7 @@ export function useCommands() {
   const { togglePanel: toggleSessionHistory } = useSessionHistoryStore()
   const { stageAll, unstageAll, refreshStatuses, push, pull, isPushing, isPulling } = useGitStore()
   const { toggleLeftSidebar, toggleRightSidebar } = useLayoutStore()
+  const { toggleBoardView } = useKanbanStore()
   const { getDisplayString } = useShortcutStore()
   const {
     searchQuery,
@@ -194,6 +196,23 @@ export function useCommands() {
           })
         },
         isVisible: () => activeWorktreeId !== null
+      },
+
+      // =====================
+      // BOARD COMMANDS
+      // =====================
+      {
+        id: 'kanban:toggle',
+        label: 'Open Board',
+        description: 'Toggle the board view',
+        category: 'navigation',
+        icon: 'KanbanIcon',
+        keywords: ['kanban', 'board', 'tickets', 'todo'],
+        action: () => {
+          toggleBoardView()
+          closeCommandPalette()
+        },
+        isVisible: () => selectedProjectId !== null
       },
 
       // =====================
@@ -657,7 +676,8 @@ export function useCommands() {
     getActiveWorktreePath,
     closeCommandPalette,
     pushCommandLevel,
-    isPackaged
+    isPackaged,
+    toggleBoardView
   ])
 
   // Get filtered commands based on search query
