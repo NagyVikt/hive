@@ -52,6 +52,13 @@ export type AttachmentInput = {
   url: Scalars['String']['input'];
 };
 
+export type CommandApprovalReplyInput = {
+  approved: Scalars['Boolean']['input'];
+  hiveSessionId: Scalars['String']['input'];
+  requestId: Scalars['String']['input'];
+  worktreePath: Scalars['String']['input'];
+};
+
 export type Connection = {
   __typename?: 'Connection';
   color?: Maybe<Scalars['String']['output']>;
@@ -182,6 +189,14 @@ export type DuplicateWorktreeInput = {
   projectPath: Scalars['String']['input'];
   sourceBranch: Scalars['String']['input'];
   sourceWorktreePath: Scalars['String']['input'];
+};
+
+export type FileReadImageResult = {
+  __typename?: 'FileReadImageResult';
+  content?: Maybe<Scalars['String']['output']>;
+  error?: Maybe<Scalars['String']['output']>;
+  mimeType?: Maybe<Scalars['String']['output']>;
+  success: Scalars['Boolean']['output'];
 };
 
 export type FileReadResult = {
@@ -567,6 +582,7 @@ export type Mutation = {
   kanbanUpdateTicket?: Maybe<KanbanTicket>;
   opencodeAbort: SuccessResult;
   opencodeCommand: SuccessResult;
+  opencodeCommandApprovalReply: SuccessResult;
   opencodeConnect: OpenCodeConnectResult;
   opencodeDisconnect: SuccessResult;
   opencodeFork: OpenCodeForkResult;
@@ -903,6 +919,11 @@ export type MutationOpencodeAbortArgs = {
 
 export type MutationOpencodeCommandArgs = {
   input: OpenCodeCommandInput;
+};
+
+
+export type MutationOpencodeCommandApprovalReplyArgs = {
+  input: CommandApprovalReplyInput;
 };
 
 
@@ -1414,6 +1435,7 @@ export type Query = {
   detectedEditors: Array<DetectedApp>;
   detectedTerminals: Array<DetectedApp>;
   fileRead: FileReadResult;
+  fileReadImageAsBase64: FileReadImageResult;
   fileReadPrompt: FileReadResult;
   fileTreeLoadChildren: FileTreeChildrenResult;
   fileTreeScan: FileTreeScanResult;
@@ -1474,6 +1496,8 @@ export type Query = {
   systemDetectAgentSdks: AgentSdkDetection;
   systemLogDir: Scalars['String']['output'];
   systemServerStatus: ServerStatus;
+  usageFetch: UsageResult;
+  usageFetchOpenai: UsageResult;
   worktree?: Maybe<Worktree>;
   worktreeExists: Scalars['Boolean']['output'];
   worktreeHasCommits: Scalars['Boolean']['output'];
@@ -1502,6 +1526,11 @@ export type QueryConnectionArgs = {
 
 
 export type QueryFileReadArgs = {
+  filePath: Scalars['String']['input'];
+};
+
+
+export type QueryFileReadImageAsBase64Args = {
   filePath: Scalars['String']['input'];
 };
 
@@ -1769,6 +1798,11 @@ export type QuerySettingArgs = {
 
 export type QuerySpaceProjectIdsArgs = {
   spaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryUsageFetchArgs = {
+  providers?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 
@@ -2066,6 +2100,13 @@ export type UpdateWorktreeModelInput = {
   worktreeId: Scalars['ID']['input'];
 };
 
+export type UsageResult = {
+  __typename?: 'UsageResult';
+  data?: Maybe<Scalars['JSON']['output']>;
+  error?: Maybe<Scalars['String']['output']>;
+  success: Scalars['Boolean']['output'];
+};
+
 export type Worktree = {
   __typename?: 'Worktree';
   attachments: Array<Attachment>;
@@ -2187,6 +2228,7 @@ export type ResolversTypes = ResolversObject<{
   Attachment: ResolverTypeWrapper<Attachment>;
   AttachmentInput: AttachmentInput;
   Boolean: ResolverTypeWrapper<Scalars['Boolean']['output']>;
+  CommandApprovalReplyInput: CommandApprovalReplyInput;
   Connection: ResolverTypeWrapper<Connection>;
   ConnectionAddMemberResult: ResolverTypeWrapper<ConnectionAddMemberResult>;
   ConnectionCreateResult: ResolverTypeWrapper<ConnectionCreateResult>;
@@ -2202,6 +2244,7 @@ export type ResolversTypes = ResolversObject<{
   DeleteWorktreeInput: DeleteWorktreeInput;
   DetectedApp: ResolverTypeWrapper<DetectedApp>;
   DuplicateWorktreeInput: DuplicateWorktreeInput;
+  FileReadImageResult: ResolverTypeWrapper<FileReadImageResult>;
   FileReadResult: ResolverTypeWrapper<FileReadResult>;
   FileTreeChangeEvent: ResolverTypeWrapper<FileTreeChangeEvent>;
   FileTreeChildrenResult: ResolverTypeWrapper<FileTreeChildrenResult>;
@@ -2309,6 +2352,7 @@ export type ResolversTypes = ResolversObject<{
   UpdateSpaceInput: UpdateSpaceInput;
   UpdateWorktreeInput: UpdateWorktreeInput;
   UpdateWorktreeModelInput: UpdateWorktreeModelInput;
+  UsageResult: ResolverTypeWrapper<UsageResult>;
   Worktree: ResolverTypeWrapper<Worktree>;
   WorktreeBranchRenamedEvent: ResolverTypeWrapper<WorktreeBranchRenamedEvent>;
   WorktreeCreateResult: ResolverTypeWrapper<WorktreeCreateResult>;
@@ -2322,6 +2366,7 @@ export type ResolversParentTypes = ResolversObject<{
   Attachment: Attachment;
   AttachmentInput: AttachmentInput;
   Boolean: Scalars['Boolean']['output'];
+  CommandApprovalReplyInput: CommandApprovalReplyInput;
   Connection: Connection;
   ConnectionAddMemberResult: ConnectionAddMemberResult;
   ConnectionCreateResult: ConnectionCreateResult;
@@ -2337,6 +2382,7 @@ export type ResolversParentTypes = ResolversObject<{
   DeleteWorktreeInput: DeleteWorktreeInput;
   DetectedApp: DetectedApp;
   DuplicateWorktreeInput: DuplicateWorktreeInput;
+  FileReadImageResult: FileReadImageResult;
   FileReadResult: FileReadResult;
   FileTreeChangeEvent: FileTreeChangeEvent;
   FileTreeChildrenResult: FileTreeChildrenResult;
@@ -2441,6 +2487,7 @@ export type ResolversParentTypes = ResolversObject<{
   UpdateSpaceInput: UpdateSpaceInput;
   UpdateWorktreeInput: UpdateWorktreeInput;
   UpdateWorktreeModelInput: UpdateWorktreeModelInput;
+  UsageResult: UsageResult;
   Worktree: Worktree;
   WorktreeBranchRenamedEvent: WorktreeBranchRenamedEvent;
   WorktreeCreateResult: WorktreeCreateResult;
@@ -2531,6 +2578,13 @@ export type DetectedAppResolvers<ContextType = GraphQLContext, ParentType extend
   command?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+}>;
+
+export type FileReadImageResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['FileReadImageResult'] = ResolversParentTypes['FileReadImageResult']> = ResolversObject<{
+  content?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  error?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  mimeType?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
 }>;
 
 export type FileReadResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['FileReadResult'] = ResolversParentTypes['FileReadResult']> = ResolversObject<{
@@ -2813,6 +2867,7 @@ export type MutationResolvers<ContextType = GraphQLContext, ParentType extends R
   kanbanUpdateTicket?: Resolver<Maybe<ResolversTypes['KanbanTicket']>, ParentType, ContextType, RequireFields<MutationKanbanUpdateTicketArgs, 'id' | 'input'>>;
   opencodeAbort?: Resolver<ResolversTypes['SuccessResult'], ParentType, ContextType, RequireFields<MutationOpencodeAbortArgs, 'sessionId' | 'worktreePath'>>;
   opencodeCommand?: Resolver<ResolversTypes['SuccessResult'], ParentType, ContextType, RequireFields<MutationOpencodeCommandArgs, 'input'>>;
+  opencodeCommandApprovalReply?: Resolver<ResolversTypes['SuccessResult'], ParentType, ContextType, RequireFields<MutationOpencodeCommandApprovalReplyArgs, 'input'>>;
   opencodeConnect?: Resolver<ResolversTypes['OpenCodeConnectResult'], ParentType, ContextType, RequireFields<MutationOpencodeConnectArgs, 'hiveSessionId' | 'worktreePath'>>;
   opencodeDisconnect?: Resolver<ResolversTypes['SuccessResult'], ParentType, ContextType, RequireFields<MutationOpencodeDisconnectArgs, 'sessionId' | 'worktreePath'>>;
   opencodeFork?: Resolver<ResolversTypes['OpenCodeForkResult'], ParentType, ContextType, RequireFields<MutationOpencodeForkArgs, 'input'>>;
@@ -3039,6 +3094,7 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   detectedEditors?: Resolver<Array<ResolversTypes['DetectedApp']>, ParentType, ContextType>;
   detectedTerminals?: Resolver<Array<ResolversTypes['DetectedApp']>, ParentType, ContextType>;
   fileRead?: Resolver<ResolversTypes['FileReadResult'], ParentType, ContextType, RequireFields<QueryFileReadArgs, 'filePath'>>;
+  fileReadImageAsBase64?: Resolver<ResolversTypes['FileReadImageResult'], ParentType, ContextType, RequireFields<QueryFileReadImageAsBase64Args, 'filePath'>>;
   fileReadPrompt?: Resolver<ResolversTypes['FileReadResult'], ParentType, ContextType, RequireFields<QueryFileReadPromptArgs, 'promptName'>>;
   fileTreeLoadChildren?: Resolver<ResolversTypes['FileTreeChildrenResult'], ParentType, ContextType, RequireFields<QueryFileTreeLoadChildrenArgs, 'dirPath' | 'rootPath'>>;
   fileTreeScan?: Resolver<ResolversTypes['FileTreeScanResult'], ParentType, ContextType, RequireFields<QueryFileTreeScanArgs, 'dirPath'>>;
@@ -3099,6 +3155,8 @@ export type QueryResolvers<ContextType = GraphQLContext, ParentType extends Reso
   systemDetectAgentSdks?: Resolver<ResolversTypes['AgentSdkDetection'], ParentType, ContextType>;
   systemLogDir?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   systemServerStatus?: Resolver<ResolversTypes['ServerStatus'], ParentType, ContextType>;
+  usageFetch?: Resolver<ResolversTypes['UsageResult'], ParentType, ContextType, Partial<QueryUsageFetchArgs>>;
+  usageFetchOpenai?: Resolver<ResolversTypes['UsageResult'], ParentType, ContextType>;
   worktree?: Resolver<Maybe<ResolversTypes['Worktree']>, ParentType, ContextType, RequireFields<QueryWorktreeArgs, 'id'>>;
   worktreeExists?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryWorktreeExistsArgs, 'worktreePath'>>;
   worktreeHasCommits?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType, RequireFields<QueryWorktreeHasCommitsArgs, 'projectPath'>>;
@@ -3232,6 +3290,12 @@ export type TicketFollowupMessageResolvers<ContextType = GraphQLContext, ParentT
   ticketId?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
 }>;
 
+export type UsageResultResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['UsageResult'] = ResolversParentTypes['UsageResult']> = ResolversObject<{
+  data?: Resolver<Maybe<ResolversTypes['JSON']>, ParentType, ContextType>;
+  error?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
+  success?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
+}>;
+
 export type WorktreeResolvers<ContextType = GraphQLContext, ParentType extends ResolversParentTypes['Worktree'] = ResolversParentTypes['Worktree']> = ResolversObject<{
   attachments?: Resolver<Array<ResolversTypes['Attachment']>, ParentType, ContextType>;
   branchName?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
@@ -3278,6 +3342,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   ConnectionRemoveMemberResult?: ConnectionRemoveMemberResultResolvers<ContextType>;
   ConnectionWithMembers?: ConnectionWithMembersResolvers<ContextType>;
   DetectedApp?: DetectedAppResolvers<ContextType>;
+  FileReadImageResult?: FileReadImageResultResolvers<ContextType>;
   FileReadResult?: FileReadResultResolvers<ContextType>;
   FileTreeChangeEvent?: FileTreeChangeEventResolvers<ContextType>;
   FileTreeChildrenResult?: FileTreeChildrenResultResolvers<ContextType>;
@@ -3352,6 +3417,7 @@ export type Resolvers<ContextType = GraphQLContext> = ResolversObject<{
   TerminalDataEvent?: TerminalDataEventResolvers<ContextType>;
   TerminalExitEvent?: TerminalExitEventResolvers<ContextType>;
   TicketFollowupMessage?: TicketFollowupMessageResolvers<ContextType>;
+  UsageResult?: UsageResultResolvers<ContextType>;
   Worktree?: WorktreeResolvers<ContextType>;
   WorktreeBranchRenamedEvent?: WorktreeBranchRenamedEventResolvers<ContextType>;
   WorktreeCreateResult?: WorktreeCreateResultResolvers<ContextType>;
