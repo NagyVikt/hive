@@ -1,4 +1,5 @@
-import { KanbanSquare, Github, FileText } from 'lucide-react'
+import { KanbanSquare, FileText } from 'lucide-react'
+import { ProviderIcon } from '@/components/ui/provider-icon'
 import type { ParsedTicket, ParsedPrComment, ParsedFile } from '@/lib/parse-user-message-attachments'
 
 interface UserMessageAttachmentCardsProps {
@@ -47,7 +48,7 @@ export function UserMessageAttachmentCards({
             data-testid="parsed-pr-comment-card"
           >
             <div className="flex items-center gap-2">
-              <Github className="h-3.5 w-3.5 shrink-0 text-foreground" />
+              <ProviderIcon provider="github" />
               <span className="font-medium text-foreground truncate">{c.author}</span>
             </div>
             <span className="text-xs text-muted-foreground truncate">

@@ -1,7 +1,8 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
-import { Paperclip, AlertCircle, Trash2, Archive, ArchiveRestore, GitBranch, ExternalLink, X, FileText, Pin, PinOff, Github, RefreshCw } from 'lucide-react'
+import { Paperclip, AlertCircle, Trash2, Archive, ArchiveRestore, GitBranch, ExternalLink, X, FileText, Pin, PinOff, RefreshCw } from 'lucide-react'
 import { UpdateStatusModal } from './UpdateStatusModal'
 import { cn } from '@/lib/utils'
+import { ProviderIcon, getProviderLabel } from '@/components/ui/provider-icon'
 import { toast } from '@/lib/toast'
 import {
   ContextMenu,
@@ -301,28 +302,28 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
               borderState === 'violet' && 'border-violet-500/60'
             )}
           >
-            {/* Title + token counter */}
+            {/* Title + top-right indicators */}
             <div className="flex items-start justify-between gap-2">
-              <div className="flex items-start gap-1 min-w-0">
-                <p className="text-sm font-medium leading-snug text-foreground">{ticket.title}</p>
-                {ticket.external_provider === 'github' && (
+              <p className="text-sm font-medium leading-snug text-foreground min-w-0">{ticket.title}</p>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {tokenText && (
+                  <span className="text-[11px] tabular-nums text-muted-foreground">
+                    {tokenText}
+                  </span>
+                )}
+                {ticket.external_provider && (
                   <a
                     href={ticket.external_url ?? '#'}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors mt-0.5"
-                    title={`GitHub #${ticket.external_id}`}
+                    className="transition-opacity hover:opacity-80"
+                    title={`${getProviderLabel(ticket.external_provider)} #${ticket.external_id}`}
                   >
-                    <Github className="h-3 w-3" />
+                    <ProviderIcon provider={ticket.external_provider} />
                   </a>
                 )}
               </div>
-              {tokenText && (
-                <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                  {tokenText}
-                </span>
-              )}
             </div>
 
             {/* Badges + progress row */}
@@ -484,7 +485,7 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
               className="gap-2"
             >
               <RefreshCw className="h-3.5 w-3.5" />
-              Update on {ticket.external_provider === 'github' ? 'GitHub' : ticket.external_provider}
+              Update on {getProviderLabel(ticket.external_provider!)}
             </ContextMenuItem>
           )}
 

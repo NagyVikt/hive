@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Loader2, Check, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { ProviderIcon } from '@/components/ui/provider-icon'
 import { toast } from 'sonner'
 
 interface ProviderInfo {
@@ -112,7 +113,10 @@ export function SettingsIntegrations() {
         return (
           <div key={provider.id} className="space-y-3 rounded-lg border p-4">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-medium">{provider.name}</h4>
+              <div className="flex items-center gap-2">
+                <ProviderIcon provider={provider.icon} size="md" />
+                <h4 className="text-sm font-medium">{provider.name}</h4>
+              </div>
               <div className="flex items-center gap-2">
                 {result === true && <Check className="h-4 w-4 text-green-500" />}
                 {result === false && <X className="h-4 w-4 text-red-500" />}

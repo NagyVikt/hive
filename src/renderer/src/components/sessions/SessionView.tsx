@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react'
-import { Send, ListPlus, Loader2, AlertCircle, RefreshCw, Square, Archive, X, Github } from 'lucide-react'
+import { Send, ListPlus, Loader2, AlertCircle, RefreshCw, Square, Archive, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { ProviderIcon } from '@/components/ui/provider-icon'
 import { toast } from '@/lib/toast'
 import { MessageRenderer } from './MessageRenderer'
 import { ModeToggle } from './ModeToggle'
@@ -412,7 +413,7 @@ function PrCommentAttachments(): React.JSX.Element | null {
             className="group relative flex flex-col gap-1 px-3 py-2 rounded-lg bg-background border border-border text-sm max-w-[400px] min-w-[220px]"
           >
             <div className="flex items-center gap-2">
-              <Github className="h-3.5 w-3.5 shrink-0 text-foreground" />
+              <ProviderIcon provider="github" />
               <img
                 src={c.user.avatarUrl}
                 alt={c.user.login}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Download, Search, ExternalLink, Loader2, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ProviderIcon } from '@/components/ui/provider-icon'
 import {
   Dialog,
   DialogContent,
@@ -177,7 +178,7 @@ export function ImportTicketsModal({
       <DialogContent className="max-w-2xl h-[70vh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-4 pt-4 pb-3 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2">
-            <Download className="h-4 w-4" />
+            <ProviderIcon provider="github" />
             Import from GitHub
             {effectiveRepo && (
               <span className="text-xs font-normal text-muted-foreground ml-1">
