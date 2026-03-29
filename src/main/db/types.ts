@@ -347,6 +347,9 @@ export interface KanbanTicket {
   created_at: string
   updated_at: string
   archived_at: string | null
+  external_provider: string | null
+  external_id: string | null
+  external_url: string | null
 }
 
 export interface KanbanTicketCreate {
@@ -360,6 +363,9 @@ export interface KanbanTicketCreate {
   worktree_id?: string | null
   mode?: 'build' | 'plan' | null
   plan_ready?: boolean
+  external_provider?: string | null
+  external_id?: string | null
+  external_url?: string | null
 }
 
 export interface KanbanTicketUpdate {
