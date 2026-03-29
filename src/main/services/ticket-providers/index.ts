@@ -1,4 +1,5 @@
 export { TicketProviderManager, initTicketProviderManager, getTicketProviderManager } from './ticket-provider-manager'
+export { GitHubProvider } from './github-provider'
 export type {
   TicketProviderId,
   TicketProvider,
