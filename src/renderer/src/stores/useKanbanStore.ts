@@ -93,6 +93,7 @@ interface KanbanState {
   setSelectedTicketId: (id: string | null) => void
   loadTickets: (projectId: string) => Promise<void>
   createTicket: (projectId: string, data: KanbanTicketCreate) => Promise<KanbanTicket>
+  refreshAfterImport: (projectId: string) => Promise<void>
   updateTicket: (ticketId: string, projectId: string, data: KanbanTicketUpdate) => Promise<void>
   deleteTicket: (ticketId: string, projectId: string) => Promise<void>
   moveTicket: (
@@ -165,6 +166,11 @@ export const useKanbanStore = create<KanbanState>()(
           return { tickets: next }
         })
         return ticket
+      },
+
+      // ── refreshAfterImport ──────────────────────────────────────
+      refreshAfterImport: async (projectId: string) => {
+        await get().loadTickets(projectId)
       },
 
       // ── updateTicket (optimistic) ────────────────────────────────
