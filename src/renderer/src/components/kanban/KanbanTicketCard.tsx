@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
-import { Paperclip, AlertCircle, Trash2, Archive, ArchiveRestore, GitBranch, ExternalLink, X, FileText, Pin, PinOff } from 'lucide-react'
+import { Paperclip, AlertCircle, Trash2, Archive, ArchiveRestore, GitBranch, ExternalLink, X, FileText, Pin, PinOff, Github, RefreshCw } from 'lucide-react'
+import { UpdateStatusModal } from './UpdateStatusModal'
 import { cn } from '@/lib/utils'
 import { toast } from '@/lib/toast'
 import {
@@ -51,6 +52,8 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showWorktreePicker, setShowWorktreePicker] = useState(false)
   const [showPreAssignPicker, setShowPreAssignPicker] = useState(false)
+  const [showStatusUpdate, setShowStatusUpdate] = useState(false)
+  const isExternalTicket = !!ticket.external_provider
   const dragCloneRef = useRef<HTMLElement | null>(null)
 
   // ── Lookup worktree name ────────────────────────────────────────
@@ -299,7 +302,21 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
           >
             {/* Title + token counter */}
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm font-medium leading-snug text-foreground">{ticket.title}</p>
+              <div className="flex items-start gap-1 min-w-0">
+                <p className="text-sm font-medium leading-snug text-foreground">{ticket.title}</p>
+                {ticket.external_provider === 'github' && (
+                  <a
+                    href={ticket.external_url ?? '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors mt-0.5"
+                    title={`GitHub #${ticket.external_id}`}
+                  >
+                    <Github className="h-3 w-3" />
+                  </a>
+                )}
+              </div>
               {tokenText && (
                 <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
                   {tokenText}
@@ -458,6 +475,18 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
             </>
           )}
 
+          {/* Update status on remote platform */}
+          {isExternalTicket && (
+            <ContextMenuItem
+              data-testid="ctx-update-remote-status"
+              onClick={() => setShowStatusUpdate(true)}
+              className="gap-2"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Update on {ticket.external_provider === 'github' ? 'GitHub' : ticket.external_provider}
+            </ContextMenuItem>
+          )}
+
           <ContextMenuSeparator />
 
           {/* Archive/Unarchive (done tickets) or Delete (all others) */}
@@ -535,6 +564,17 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
         onOpenChange={setShowPreAssignPicker}
         preAssignOnly
       />
+
+      {isExternalTicket && ticket.external_id && ticket.external_url && (
+        <UpdateStatusModal
+          open={showStatusUpdate}
+          onOpenChange={setShowStatusUpdate}
+          externalProvider={ticket.external_provider!}
+          externalId={ticket.external_id}
+          externalUrl={ticket.external_url}
+          ticketTitle={ticket.title}
+        />
+      )}
     </>
   )
 })
