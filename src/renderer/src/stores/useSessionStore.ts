@@ -907,7 +907,7 @@ export const useSessionStore = create<SessionState>()(
 
         let newMode: SessionMode
         if (currentMode === 'build') {
-          newMode = get().superArmedBySession.get(sessionId) ? 'super-plan' : 'plan'
+          newMode = get().getSuperArmed(sessionId) ? 'super-plan' : 'plan'
         } else {
           // 'plan' or 'super-plan' → back to 'build'
           newMode = 'build'

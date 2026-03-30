@@ -229,17 +229,13 @@ export function WorktreePickerModal({
   }, [])
 
   // ── Handle mode toggle ──────────────────────────────────────────
-  const superPlanModeEnabled = useSettingsStore((s) => s.superPlanModeEnabled)
-
   const toggleMode = useCallback(() => {
     setMode((prev) => {
-      const next = superPlanModeEnabled
-        ? prev === 'build' ? 'plan' : prev === 'plan' ? 'super-plan' : 'build'
-        : prev === 'build' ? 'plan' : 'build'
+      const next = prev === 'build' ? 'plan' : 'build'
       setPromptText(buildPrompt(next, ticket))
       return next
     })
-  }, [ticket, superPlanModeEnabled])
+  }, [ticket])
 
   // ── Handle Tab key: toggle mode + focus prompt textarea ────────
   // Must use window-level capture-phase listener to beat SessionView's
