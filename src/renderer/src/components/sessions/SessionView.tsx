@@ -627,6 +627,11 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
+  const scrollContainerCallbackRef = useCallback((el: HTMLDivElement | null) => {
+    scrollContainerRef.current = el
+    setScrollElement(el)
+  }, [])
 
   // Smart auto-scroll tracking
   const isAutoScrollEnabledRef = useRef(true)
@@ -4676,7 +4681,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
       {/* Message list with scroll tracking */}
       <div className="relative flex-1 min-h-0">
         <div
-          ref={scrollContainerRef}
+          ref={scrollContainerCallbackRef}
           className="h-full overflow-y-auto"
           onScroll={handleScroll}
           onWheel={handleScrollWheel}
@@ -4738,7 +4743,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
               hasVisibleWritingCursor={hasVisibleWritingCursor}
               queuedMessages={queuedMessages}
               completionEntry={completionEntry}
-              scrollContainerRef={scrollContainerRef}
+              scrollElement={scrollElement}
               messagesEndRef={messagesEndRef}
             />
           )}

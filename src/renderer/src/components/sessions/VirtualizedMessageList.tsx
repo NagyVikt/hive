@@ -39,7 +39,7 @@ export interface VirtualizedMessageListProps {
   hasVisibleWritingCursor: boolean
   queuedMessages: { id: string; content: string }[]
   completionEntry: { word?: string; durationMs?: number } | null
-  scrollContainerRef: React.RefObject<HTMLDivElement | null>
+  scrollElement: HTMLDivElement | null
   messagesEndRef: React.RefObject<HTMLDivElement | null>
 }
 
@@ -65,7 +65,7 @@ export const VirtualizedMessageList = memo(function VirtualizedMessageList({
   hasVisibleWritingCursor,
   queuedMessages,
   completionEntry,
-  scrollContainerRef,
+  scrollElement,
   messagesEndRef
 }: VirtualizedMessageListProps): React.JSX.Element {
   // Build the flat item array that drives the virtualizer
@@ -128,7 +128,7 @@ export const VirtualizedMessageList = memo(function VirtualizedMessageList({
 
   const virtualizer = useVirtualizer({
     count: items.length,
-    getScrollElement: () => scrollContainerRef.current,
+    getScrollElement: () => scrollElement,
     estimateSize: () => 150,
     overscan: 5
   })
