@@ -5,6 +5,7 @@ import { useKanbanStore } from '@/stores/useKanbanStore'
 import { usePinnedStore } from '@/stores/usePinnedStore'
 import { KanbanColumn } from '@/components/kanban/KanbanColumn'
 import { KanbanTicketModal } from '@/components/kanban/KanbanTicketModal'
+import { MergeOnDoneDialog } from './MergeOnDoneDialog'
 import type { KanbanTicketColumn } from '../../../../main/db/types'
 
 const COLUMNS: KanbanTicketColumn[] = ['todo', 'in_progress', 'review', 'done']
@@ -115,6 +116,7 @@ export function KanbanBoard({ projectId, projectPath: _projectPath, connectionId
               )
             })}
             <KanbanTicketModal />
+            <MergeOnDoneDialog />
           </motion.div>
         )}
       </div>

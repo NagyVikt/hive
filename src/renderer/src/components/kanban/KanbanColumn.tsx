@@ -212,7 +212,7 @@ export function KanbanColumn({ column, tickets, archivedTickets, projectId, conn
   }, [])
 
   const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault()
       setIsDragOver(false)
       setDropIndex(null)
@@ -254,6 +254,30 @@ export function KanbanColumn({ column, tickets, archivedTickets, projectId, conn
             // Show confirmation dialog
             setPendingBackwardDrag({ ticketId, targetIndex })
             return
+          }
+        }
+
+        // Merge-on-done: intercept drops to Done for feature-branch worktrees
+        if (column === 'done') {
+          const draggedTicket = findTicket(ticketId)
+          if (draggedTicket?.worktree_id) {
+            try {
+              const worktree = await window.db.worktree.get(draggedTicket.worktree_id)
+              if (worktree) {
+                // Resolve the effective base branch
+                const defaultWorktrees = await window.db.worktree.getActiveByProject(ticketProjectId)
+                const defaultWt = defaultWorktrees.find((w) => w.is_default)
+                const resolvedBaseBranch = worktree.base_branch ?? defaultWt?.branch_name
+
+                if (resolvedBaseBranch && worktree.branch_name !== resolvedBaseBranch) {
+                  const sortOrder = store.computeSortOrder(tickets, targetIndex)
+                  store.setPendingDoneMove({ ticketId, projectId: ticketProjectId, sortOrder })
+                  return
+                }
+              }
+            } catch {
+              // Fall through to normal move on error
+            }
           }
         }
 
