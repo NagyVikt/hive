@@ -57,7 +57,8 @@ export function registerKanbanHandlers(): void {
   })
 
   ipcMain.handle('kanban:ticket:addTokens', (_event, id: string, tokens: number) => {
-    return getDatabase().addTicketTokens(id, tokens)
+    getDatabase().addTicketTokens(id, tokens)
+    return getDatabase().getKanbanTicket(id)
   })
 
   ipcMain.handle('kanban:simpleMode:toggle', (_event, projectId: string, enabled: boolean) => {
