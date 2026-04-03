@@ -59,7 +59,7 @@ function UsageRow({ label, percent, resetTime }: UsageRowProps): React.JSX.Eleme
       <div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
         <div
           className={cn('h-full rounded-full transition-all duration-300', getBarColor(percent))}
-          style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+          style={{ width: `${Math.min(100, Math.max(0, percent))}%`, minWidth: 2 }}
         />
       </div>
       <span className="text-[10px] font-mono text-muted-foreground w-7 text-right shrink-0">
