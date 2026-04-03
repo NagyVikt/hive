@@ -498,6 +498,7 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
                       e.stopPropagation()
                       window.systemOps.openInChrome(ticket.github_pr_url!)
                     }}
+                    title={`Open PR #${ticket.github_pr_number} in browser`}
                     className="inline-flex items-center gap-1 rounded-full bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-muted/60 transition-colors"
                   >
                     <Github className="h-3 w-3" />

@@ -80,6 +80,32 @@ interface TicketAttachment extends AttachmentInfo {
   url: string
 }
 
+// ── Shared hooks ────────────────────────────────────────────────────
+
+/** Creates a session, pins it to the board, activates it, and closes the modal. */
+function usePinAndActivateSession(onClose: () => void) {
+  const [loading, setLoading] = useState(false)
+
+  const pinAndActivate = useCallback(async (createFn: () => Promise<string | null>) => {
+    setLoading(true)
+    try {
+      const sessionId = await createFn()
+      if (sessionId) {
+        const sessionStore = useSessionStore.getState()
+        await sessionStore.pinSessionToBoard(sessionId)
+        sessionStore.setActivePinnedSession(sessionId)
+        onClose()
+      }
+    } catch {
+      // Session creation itself shows toasts; nothing extra needed
+    } finally {
+      setLoading(false)
+    }
+  }, [onClose])
+
+  return { pinAndActivate, lifecycleLoading: loading }
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────
 
 /** Find a worktree by its ID across all projects */
@@ -748,25 +774,8 @@ function EditModeContent({
   const [attachUrl, setAttachUrl] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const lifecycle = useLifecycleActions(ticket.worktree_id)
-  const [lifecycleLoading, setLifecycleLoading] = useState(false)
+  const { pinAndActivate: pinAndActivateSession, lifecycleLoading } = usePinAndActivateSession(onClose)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-
-  const pinAndActivateSession = useCallback(async (createFn: () => Promise<string | null>) => {
-    setLifecycleLoading(true)
-    try {
-      const sessionId = await createFn()
-      if (sessionId) {
-        const sessionStore = useSessionStore.getState()
-        await sessionStore.pinSessionToBoard(sessionId)
-        sessionStore.setActivePinnedSession(sessionId)
-        onClose()
-      }
-    } catch {
-      // Session creation itself shows toasts; nothing extra needed
-    } finally {
-      setLifecycleLoading(false)
-    }
-  }, [onClose])
 
   const detectedAttachment = attachUrl.trim() ? parseAttachmentUrl(attachUrl.trim()) : null
 
@@ -1607,24 +1616,7 @@ function ReviewModeContent({
   const [isSending, setIsSending] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const lifecycle = useLifecycleActions(ticket.worktree_id)
-  const [lifecycleLoading, setLifecycleLoading] = useState(false)
-
-  const pinAndActivateSession = useCallback(async (createFn: () => Promise<string | null>) => {
-    setLifecycleLoading(true)
-    try {
-      const sessionId = await createFn()
-      if (sessionId) {
-        const sessionStore = useSessionStore.getState()
-        await sessionStore.pinSessionToBoard(sessionId)
-        sessionStore.setActivePinnedSession(sessionId)
-        onClose()
-      }
-    } catch {
-      // Session creation itself shows toasts; nothing extra needed
-    } finally {
-      setLifecycleLoading(false)
-    }
-  }, [onClose])
+  const { pinAndActivate: pinAndActivateSession, lifecycleLoading } = usePinAndActivateSession(onClose)
 
   // Display ticket description as context, with notice to view session for full conversation
   const reviewDescription = ticket.description ?? null

@@ -688,20 +688,22 @@ export const useKanbanStore = create<KanbanState>()(
       syncPRToTicket: (worktreeId: string, prNumber: number, prUrl: string) => {
         set((state) => {
           const newTickets = new Map(state.tickets)
-          let changed = false
+          let anyChanged = false
           for (const [projectId, projectTickets] of newTickets) {
+            let projectChanged = false
             const updated = projectTickets.map((t) => {
               if (t.worktree_id === worktreeId) {
-                changed = true
+                projectChanged = true
                 return { ...t, github_pr_number: prNumber, github_pr_url: prUrl }
               }
               return t
             })
-            if (changed) {
+            if (projectChanged) {
+              anyChanged = true
               newTickets.set(projectId, updated)
             }
           }
-          return changed ? { tickets: newTickets } : {}
+          return anyChanged ? { tickets: newTickets } : {}
         })
       },
 
@@ -709,20 +711,22 @@ export const useKanbanStore = create<KanbanState>()(
       clearPRFromTicket: (worktreeId: string) => {
         set((state) => {
           const newTickets = new Map(state.tickets)
-          let changed = false
+          let anyChanged = false
           for (const [projectId, projectTickets] of newTickets) {
+            let projectChanged = false
             const updated = projectTickets.map((t) => {
               if (t.worktree_id === worktreeId) {
-                changed = true
+                projectChanged = true
                 return { ...t, github_pr_number: null, github_pr_url: null }
               }
               return t
             })
-            if (changed) {
+            if (projectChanged) {
+              anyChanged = true
               newTickets.set(projectId, updated)
             }
           }
-          return changed ? { tickets: newTickets } : {}
+          return anyChanged ? { tickets: newTickets } : {}
         })
       },
 
