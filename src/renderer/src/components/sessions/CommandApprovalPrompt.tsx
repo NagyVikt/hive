@@ -344,21 +344,23 @@ export function CommandApprovalPrompt({ request, sessionId, onReply }: CommandAp
     }
   }, [sending, flatSuggestions, onReply, request.id])
 
+  // Enter key handler: approve once (default) or confirm pattern if picker is open
+  // Only enabled when user has opted in via settings, and skips when user is typing in chat
+  const enterToApproveEnabled = commandFilter.enterToApprove
+
   // Auto-focus the approval prompt when it appears or when switching between sessions
-  // This ensures Enter key works immediately even when navigating between chats
+  // ONLY if the user has enabled Enter to approve - otherwise we steal focus from chat
   // Use double RAF to ensure focus happens after all layout and render cycles complete
   // Depend on both request.id and sessionId to re-focus when switching sessions
   useEffect(() => {
+    if (!enterToApproveEnabled) return
+
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         containerRef.current?.focus()
       })
     })
-  }, [request.id, sessionId])
-
-  // Enter key handler: approve once (default) or confirm pattern if picker is open
-  // Only enabled when user has opted in via settings, and skips when user is typing in chat
-  const enterToApproveEnabled = commandFilter.enterToApprove
+  }, [request.id, sessionId, enterToApproveEnabled])
   useKeyboardShortcut({
     key: 'Enter',
     callback: patternPickerMode ? handleConfirmPattern : handleAllow,

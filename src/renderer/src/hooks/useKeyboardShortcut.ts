@@ -7,7 +7,7 @@ interface ShortcutOptions {
   modifiers?: ModifierKey[]
   callback: () => void
   enabled?: boolean
-  skipWhenEditing?: boolean // Skip when focus is in input/textarea/contenteditable
+  skipWhenEditing?: boolean // Skip when focus is in input/textarea/contenteditable/button
 }
 
 /**
@@ -25,12 +25,14 @@ export function useKeyboardShortcut({
     (event: KeyboardEvent) => {
       if (!enabled) return
 
-      // Skip if user is typing in an input/textarea/contenteditable
+      // Skip if user is typing in an input/textarea/contenteditable or has a button focused
+      // This prevents the shortcut from hijacking native button behavior (e.g., Enter on "Deny" button)
       if (skipWhenEditing) {
         const target = event.target as HTMLElement
         if (
           target.tagName === 'INPUT' ||
           target.tagName === 'TEXTAREA' ||
+          target.tagName === 'BUTTON' ||
           target.isContentEditable
         ) {
           return
