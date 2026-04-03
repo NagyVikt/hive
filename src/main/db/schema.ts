@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS projects (
   run_script TEXT DEFAULT NULL,
   archive_script TEXT DEFAULT NULL,
   custom_icon TEXT DEFAULT NULL,
+  detected_icon TEXT DEFAULT NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,
   auto_assign_port INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,

@@ -83,24 +83,28 @@ export const useProjectStore = create<ProjectState>()(
           const projects = await window.db.project.getAll()
           set({ projects, isLoading: false })
 
-          // Backfill favicon detection for projects that haven't been scanned yet
+          // Backfill favicon detection sequentially to avoid SQLite write contention
           const unscanned = projects.filter((p) => p.detected_icon === null || p.detected_icon === undefined)
-          for (const project of unscanned) {
-            window.projectOps
-              .detectFavicon(project.path)
-              .then(async (detectedIcon) => {
-                await window.db.project.update(project.id, {
-                  detected_icon: detectedIcon ?? 'none'
-                })
-                set((state) => ({
-                  projects: state.projects.map((p) =>
-                    p.id === project.id
-                      ? { ...p, detected_icon: detectedIcon ?? 'none' }
-                      : p
-                  )
-                }))
-              })
-              .catch(() => {})
+          if (unscanned.length > 0) {
+            ;(async () => {
+              for (const project of unscanned) {
+                try {
+                  const detectedIcon = await window.projectOps.detectFavicon(project.path)
+                  await window.db.project.update(project.id, {
+                    detected_icon: detectedIcon ?? 'none'
+                  })
+                  set((state) => ({
+                    projects: state.projects.map((p) =>
+                      p.id === project.id
+                        ? { ...p, detected_icon: detectedIcon ?? 'none' }
+                        : p
+                    )
+                  }))
+                } catch {
+                  // Ignore errors for individual projects
+                }
+              }
+            })()
           }
         } catch (error) {
           set({

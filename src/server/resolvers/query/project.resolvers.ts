@@ -5,8 +5,7 @@ import {
   detectProjectLanguage,
   detectProjectFavicon,
   loadLanguageIcons,
-  getIconDataUrl,
-  getAbsoluteIconDataUrl
+  getIconDataUrl
 } from '../../../main/services/project-ops'
 
 export const projectQueryResolvers: Resolvers = {
@@ -28,9 +27,6 @@ export const projectQueryResolvers: Resolvers = {
     },
     projectDetectFavicon: async (_parent, { projectPath }) => {
       return detectProjectFavicon(projectPath)
-    },
-    projectAbsoluteIconDataUrl: (_parent, { absolutePath }) => {
-      return getAbsoluteIconDataUrl(absolutePath)
     }
   }
 }

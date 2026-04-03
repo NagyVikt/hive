@@ -68,12 +68,10 @@ export function createProjectOpsAdapter(): ProjectOpsApi {
       return data.projectDetectFavicon
     },
 
-    async getAbsoluteIconDataUrl(absolutePath: string): Promise<string | null> {
-      const data = await graphqlQuery<{ projectAbsoluteIconDataUrl: string | null }>(
-        `query ($absolutePath: String!) { projectAbsoluteIconDataUrl(absolutePath: $absolutePath) }`,
-        { absolutePath }
-      )
-      return data.projectAbsoluteIconDataUrl
+    async getAbsoluteIconDataUrl(_absolutePath: string): Promise<string | null> {
+      // Intentionally not exposed over GraphQL to avoid arbitrary file reads.
+      // Favicon resolution via absolute path is only available in the Electron IPC transport.
+      return null
     },
 
     async isGitRepository(path: string): Promise<boolean> {

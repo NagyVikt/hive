@@ -84,7 +84,6 @@ type Query {
   projectLanguageIcons: JSON!
   projectIconPath(filename: String!): String
   projectDetectFavicon(projectPath: String!): String
-  projectAbsoluteIconDataUrl(absolutePath: String!): String
 
   # --- Settings Operations ---
   detectedEditors: [DetectedApp!]!

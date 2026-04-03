@@ -58,8 +58,9 @@ export async function detectProjectLanguage(projectPath: string): Promise<string
 /**
  * Detect a project favicon by scanning well-known paths.
  * Returns the absolute path of the first match, or null.
+ * Note: synchronous (only uses existsSync) but callers may await the result.
  */
-export async function detectProjectFavicon(projectPath: string): Promise<string | null> {
+export function detectProjectFavicon(projectPath: string): string | null {
   try {
     const candidates = [
       // Next.js App Router
