@@ -3,6 +3,14 @@
 @import 'highlight.js/styles/github-dark-dimmed.css';
 @import './xterm.css';
 
+@font-face {
+  font-family: 'DM Sans';
+  src: url('../assets/fonts/DMSans-Variable.woff2') format('woff2');
+  font-weight: 100 1000;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -31,34 +39,40 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', Menlo, monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
 }
 
 :root {
-  --radius: 0.5rem;
-  /* Light theme defaults (Daylight) */
-  --background: hsl(0 0% 100%);
+  color-scheme: light;
+  --radius: 0.625rem;
+  /* Light theme — purple-tinted surfaces (HSL 260° purple) */
+  --background: hsl(260 20% 99%);
   --foreground: hsl(260 15% 12%);
-  --card: hsl(0 0% 100%);
+  --card: hsl(260 20% 99%);
   --card-foreground: hsl(260 15% 12%);
-  --popover: hsl(0 0% 100%);
+  --popover: hsl(260 20% 99%);
   --popover-foreground: hsl(260 15% 12%);
-  --primary: hsl(270 60% 50%);
-  --primary-foreground: hsl(0 0% 100%);
+  --primary: oklch(0.488 0.217 270);
+  --primary-foreground: var(--color-white);
   --secondary: hsl(260 15% 95%);
   --secondary-foreground: hsl(260 15% 20%);
   --muted: hsl(260 15% 95%);
   --muted-foreground: hsl(260 10% 45%);
   --accent: hsl(260 15% 95%);
   --accent-foreground: hsl(260 15% 20%);
-  --destructive: hsl(0 62% 50%);
-  --destructive-foreground: hsl(0 0% 100%);
+  --destructive: var(--color-red-500);
+  --destructive-foreground: var(--color-white);
   --border: hsl(260 10% 90%);
-  --input: hsl(260 10% 90%);
-  --ring: hsl(270 60% 50%);
+  --input: hsl(260 10% 88%);
+  --ring: var(--primary);
   --chart-1: oklch(64.62% 0.171 250.71);
   --chart-2: oklch(60.04% 0.118 184.7);
   --chart-3: oklch(39.87% 0.07 227.39);
@@ -66,35 +80,36 @@
   --chart-5: oklch(64.47% 0.222 41.12);
   --sidebar: hsl(260 15% 97%);
   --sidebar-foreground: hsl(260 10% 45%);
-  --sidebar-primary: hsl(270 60% 50%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--color-white);
   --sidebar-accent: hsl(260 15% 93%);
   --sidebar-accent-foreground: hsl(260 15% 20%);
   --sidebar-border: hsl(260 10% 90%);
-  --sidebar-ring: hsl(270 60% 50%);
+  --sidebar-ring: var(--primary);
 }
 
 .dark {
-  /* Dark theme defaults (Amethyst) */
-  --background: hsl(260 15% 8%);
+  color-scheme: dark;
+  /* Dark theme — purple-tinted surfaces (HSL 260° purple) */
+  --background: hsl(260 15% 9%);
   --foreground: hsl(260 10% 95%);
-  --card: hsl(260 15% 10%);
+  --card: hsl(260 15% 11%);
   --card-foreground: hsl(260 10% 95%);
-  --popover: hsl(260 15% 10%);
+  --popover: hsl(260 15% 11%);
   --popover-foreground: hsl(260 10% 95%);
-  --primary: hsl(270 60% 55%);
-  --primary-foreground: hsl(0 0% 100%);
-  --secondary: hsl(260 15% 16%);
+  --primary: oklch(0.588 0.217 270);
+  --primary-foreground: var(--color-white);
+  --secondary: hsl(260 15% 14%);
   --secondary-foreground: hsl(260 10% 90%);
-  --muted: hsl(260 15% 16%);
+  --muted: hsl(260 15% 14%);
   --muted-foreground: hsl(260 10% 55%);
-  --accent: hsl(260 15% 16%);
+  --accent: hsl(260 15% 14%);
   --accent-foreground: hsl(260 10% 90%);
-  --destructive: hsl(0 62% 50%);
-  --destructive-foreground: hsl(0 0% 100%);
-  --border: hsl(260 15% 18%);
-  --input: hsl(260 15% 18%);
-  --ring: hsl(270 60% 55%);
+  --destructive: var(--color-red-500);
+  --destructive-foreground: var(--color-white);
+  --border: hsl(260 12% 16%);
+  --input: hsl(260 12% 17%);
+  --ring: var(--primary);
   --chart-1: oklch(70.34% 0.127 227.39);
   --chart-2: oklch(69.26% 0.128 184.7);
   --chart-3: oklch(98.48% 0.001 285.98);
@@ -102,33 +117,38 @@
   --chart-5: oklch(65.91% 0.204 41.12);
   --sidebar: hsl(260 15% 7%);
   --sidebar-foreground: hsl(260 10% 55%);
-  --sidebar-primary: hsl(270 60% 55%);
-  --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(260 15% 14%);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--color-white);
+  --sidebar-accent: hsl(260 15% 12%);
   --sidebar-accent-foreground: hsl(260 10% 90%);
-  --sidebar-border: hsl(260 15% 18%);
-  --sidebar-ring: hsl(270 60% 55%);
+  --sidebar-border: hsl(260 12% 16%);
+  --sidebar-ring: var(--primary);
 }
 
 @layer base {
   * {
     @apply border-border;
+    outline-color: color-mix(in srgb, var(--ring) 50%, transparent);
   }
   body {
     @apply bg-background text-foreground;
+    font-size: 18px;
     font-feature-settings:
       'rlig' 1,
       'calt' 1;
+  }
+  pre, code, kbd, samp {
+    font-family: var(--font-mono);
   }
 
   /* Native-feeling scrollbars — thin, transparent, theme-aware */
   * {
     scrollbar-width: thin;
-    scrollbar-color: rgba(128, 128, 128, 0.3) transparent;
+    scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
   }
 
   *:hover {
-    scrollbar-color: rgba(128, 128, 128, 0.5) transparent;
+    scrollbar-color: rgba(0, 0, 0, 0.25) transparent;
   }
 
   /* WebKit scrollbar styling (Electron/Chromium) */
@@ -142,21 +162,55 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(128, 128, 128, 0.25);
+    background: rgba(0, 0, 0, 0.15);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(128, 128, 128, 0.45);
+    background: rgba(0, 0, 0, 0.25);
   }
 
   ::-webkit-scrollbar-thumb:active {
-    background: rgba(128, 128, 128, 0.6);
+    background: rgba(0, 0, 0, 0.35);
   }
 
   ::-webkit-scrollbar-corner {
     background: transparent;
   }
+
+  /* Dark mode scrollbar overrides */
+  .dark * {
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  }
+
+  .dark *:hover {
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.18);
+  }
+
+  .dark ::-webkit-scrollbar-thumb:active {
+    background: rgba(255, 255, 255, 0.25);
+  }
+}
+
+/* Subtle grain texture overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
 }
 
 /* Electron window drag utilities */
@@ -175,9 +229,7 @@
 
 /* diff2html styles */
 .diff-viewer {
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
 }
 
@@ -204,24 +256,24 @@
 }
 
 .dark .diff-viewer .d2h-file-header {
-  background-color: hsl(var(--muted));
-  border-color: hsl(var(--border));
+  background-color: var(--muted);
+  border-color: var(--border);
 }
 
 .dark .diff-viewer .d2h-file-header,
 .dark .diff-viewer .d2h-file-name {
-  color: hsl(var(--foreground));
+  color: var(--foreground);
 }
 
 .dark .diff-viewer .d2h-code-line,
 .dark .diff-viewer .d2h-code-side-line {
-  background-color: hsl(var(--background));
+  background-color: var(--background);
 }
 
 .dark .diff-viewer .d2h-code-linenumber {
-  background-color: hsl(var(--muted));
-  color: hsl(var(--muted-foreground));
-  border-color: hsl(var(--border));
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+  border-color: var(--border);
 }
 
 /* Dark mode — added lines: green tinted background (text color from syntax highlighting) */
@@ -258,21 +310,21 @@
 }
 
 .dark .diff-viewer .d2h-info {
-  background-color: hsl(var(--muted));
-  color: hsl(var(--muted-foreground));
-  border-color: hsl(var(--border));
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+  border-color: var(--border);
 }
 
 .dark .diff-viewer .d2h-file-diff {
-  border-color: hsl(var(--border));
+  border-color: var(--border);
 }
 
 .dark .diff-viewer .d2h-diff-table {
-  border-color: hsl(var(--border));
+  border-color: var(--border);
 }
 
 .dark .diff-viewer .d2h-diff-tbody tr {
-  border-color: hsl(var(--border));
+  border-color: var(--border);
 }
 
 /* Ensure line numbers and content align properly */
@@ -415,7 +467,7 @@
   padding: 0.15em 0.35em;
   border-radius: 4px;
   background: var(--muted);
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
 }
 .pr-comment-html pre {
   margin: 0.5em 0;
@@ -424,7 +476,7 @@
   background: var(--muted);
   overflow-x: auto;
   font-size: 0.85em;
-  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
 }
 .pr-comment-html pre code {
   padding: 0;

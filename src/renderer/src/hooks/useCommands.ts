@@ -10,13 +10,14 @@ import {
   useSettingsStore,
   useKanbanStore
 } from '@/stores'
-import { THEME_PRESETS } from '@/lib/themes'
+
 import { useFileViewerStore } from '@/stores/useFileViewerStore'
 import { BOARD_TAB_ID } from '@/stores/useSessionStore'
 import { useGitStore } from '@/stores/useGitStore'
 import { useShortcutStore } from '@/stores/useShortcutStore'
 import { useCommandPaletteStore, type Command } from '@/stores/useCommandPaletteStore'
 import { commandRegistry, fuzzySearch } from '@/lib/command-registry'
+import { THEME_PRESETS, getThemeById } from '@/lib/themes'
 import { toast } from '@/lib/toast'
 import { revealLabel, isWindows, fileManagerName } from '@/lib/platform'
 
@@ -573,35 +574,31 @@ export function useCommands() {
       {
         id: 'settings:theme',
         label: 'Switch Theme',
-        description: `Current: ${themeId}. Choose a theme preset`,
+        description: `Current: ${getThemeById(themeId)?.name ?? themeId}`,
         category: 'settings',
         icon: 'Palette',
-        keywords: ['theme', 'dark', 'light', 'mode', 'appearance', 'color'],
+        keywords: ['theme', 'dark', 'light', 'mode', 'appearance', 'color', 'toggle'],
         hasChildren: true,
         action: () => {
-          const children = THEME_PRESETS.map((preset) => ({
-            id: `settings:theme:${preset.id}`,
-            label: preset.name,
-            description: `${preset.type} theme`,
+          const children = THEME_PRESETS.map((p) => ({
+            id: `settings:theme:${p.id}`,
+            label: p.name,
+            description: `${p.type} theme`,
             category: 'settings' as const,
-            icon: preset.type === 'dark' ? 'Moon' : 'Sun',
-            onHighlight: () => previewTheme(preset.id),
+            icon: p.type === 'dark' ? 'Moon' : 'Sun',
+            onHighlight: () => previewTheme(p.id),
             action: () => {
-              setTheme(preset.id)
-              toast.success(`Theme set to ${preset.name}`)
+              setTheme(p.id)
+              toast.success(`Switched to ${p.name}`)
               closeCommandPalette()
             }
           }))
-          pushCommandLevel(
-            children,
-            {
-              id: 'settings:theme',
-              label: 'Switch Theme',
-              category: 'settings',
-              action: () => {}
-            },
-            () => cancelPreview()
-          )
+          pushCommandLevel(children, {
+            id: 'settings:theme',
+            label: 'Switch Theme',
+            category: 'settings',
+            action: () => {}
+          }, () => cancelPreview())
         }
       },
 

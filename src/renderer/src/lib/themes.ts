@@ -2,17 +2,76 @@ export interface ThemePreset {
   id: string
   name: string
   type: 'dark' | 'light'
-  colors: Record<string, string>
+  cssNative: boolean // true = colors defined in CSS, don't apply via JS
+  colors: Record<string, string> // 27 HSL values (empty {} for cssNative)
+  previewColors: Record<string, string> // 4 keys for ThemeCard swatch rendering
 }
 
+export const THEME_CSS_PROPERTIES = [
+  'background',
+  'foreground',
+  'card',
+  'card-foreground',
+  'popover',
+  'popover-foreground',
+  'primary',
+  'primary-foreground',
+  'secondary',
+  'secondary-foreground',
+  'muted',
+  'muted-foreground',
+  'accent',
+  'accent-foreground',
+  'destructive',
+  'destructive-foreground',
+  'border',
+  'input',
+  'ring',
+  'sidebar',
+  'sidebar-foreground',
+  'sidebar-primary',
+  'sidebar-primary-foreground',
+  'sidebar-accent',
+  'sidebar-accent-foreground',
+  'sidebar-border',
+  'sidebar-ring'
+] as const
+
 export const THEME_PRESETS: ThemePreset[] = [
-  // =====================
-  // DARK THEMES (6)
-  // =====================
+  // Glass themes (CSS-native)
+  {
+    id: 'glass-dark',
+    name: 'Glass Dark',
+    type: 'dark',
+    cssNative: true,
+    colors: {},
+    previewColors: {
+      background: '#1a1626',
+      sidebar: '#150f22',
+      primary: '#7c5ce0',
+      'muted-foreground': '#736b8a'
+    }
+  },
+  {
+    id: 'glass-light',
+    name: 'Glass Light',
+    type: 'light',
+    cssNative: true,
+    colors: {},
+    previewColors: {
+      background: '#f9f7fd',
+      sidebar: '#f3effa',
+      primary: '#6932d4',
+      'muted-foreground': '#6b6382'
+    }
+  },
+
+  // Dark HSL themes
   {
     id: 'amethyst',
     name: 'Amethyst',
     type: 'dark',
+    cssNative: false,
     colors: {
       background: 'hsl(260 15% 8%)',
       foreground: 'hsl(260 10% 95%)',
@@ -41,12 +100,19 @@ export const THEME_PRESETS: ThemePreset[] = [
       'sidebar-accent-foreground': 'hsl(260 10% 90%)',
       'sidebar-border': 'hsl(260 15% 18%)',
       'sidebar-ring': 'hsl(270 60% 55%)'
+    },
+    previewColors: {
+      background: 'hsl(260 15% 8%)',
+      sidebar: 'hsl(260 15% 7%)',
+      primary: 'hsl(270 60% 55%)',
+      'muted-foreground': 'hsl(260 10% 55%)'
     }
   },
   {
     id: 'obsidian',
     name: 'Obsidian',
     type: 'dark',
+    cssNative: false,
     colors: {
       background: 'hsl(0 0% 7%)',
       foreground: 'hsl(0 0% 93%)',
@@ -75,12 +141,19 @@ export const THEME_PRESETS: ThemePreset[] = [
       'sidebar-accent-foreground': 'hsl(0 0% 88%)',
       'sidebar-border': 'hsl(0 0% 17%)',
       'sidebar-ring': 'hsl(0 0% 70%)'
+    },
+    previewColors: {
+      background: 'hsl(0 0% 7%)',
+      sidebar: 'hsl(0 0% 6%)',
+      primary: 'hsl(0 0% 90%)',
+      'muted-foreground': 'hsl(0 0% 55%)'
     }
   },
   {
     id: 'midnight-blue',
     name: 'Midnight Blue',
     type: 'dark',
+    cssNative: false,
     colors: {
       background: 'hsl(220 20% 8%)',
       foreground: 'hsl(215 15% 93%)',
@@ -109,12 +182,19 @@ export const THEME_PRESETS: ThemePreset[] = [
       'sidebar-accent-foreground': 'hsl(215 15% 90%)',
       'sidebar-border': 'hsl(220 18% 18%)',
       'sidebar-ring': 'hsl(215 70% 55%)'
+    },
+    previewColors: {
+      background: 'hsl(220 20% 8%)',
+      sidebar: 'hsl(220 20% 7%)',
+      primary: 'hsl(215 70% 55%)',
+      'muted-foreground': 'hsl(215 15% 55%)'
     }
   },
   {
     id: 'emerald-night',
     name: 'Emerald Night',
     type: 'dark',
+    cssNative: false,
     colors: {
       background: 'hsl(160 15% 7%)',
       foreground: 'hsl(155 10% 93%)',
@@ -143,12 +223,19 @@ export const THEME_PRESETS: ThemePreset[] = [
       'sidebar-accent-foreground': 'hsl(155 10% 90%)',
       'sidebar-border': 'hsl(160 12% 17%)',
       'sidebar-ring': 'hsl(150 60% 45%)'
+    },
+    previewColors: {
+      background: 'hsl(160 15% 7%)',
+      sidebar: 'hsl(160 15% 6%)',
+      primary: 'hsl(150 60% 45%)',
+      'muted-foreground': 'hsl(155 10% 55%)'
     }
   },
   {
     id: 'crimson',
     name: 'Crimson',
     type: 'dark',
+    cssNative: false,
     colors: {
       background: 'hsl(0 12% 8%)',
       foreground: 'hsl(0 5% 93%)',
@@ -164,7 +251,7 @@ export const THEME_PRESETS: ThemePreset[] = [
       'muted-foreground': 'hsl(0 5% 55%)',
       accent: 'hsl(0 10% 16%)',
       'accent-foreground': 'hsl(0 5% 90%)',
-      destructive: 'hsl(30 80% 50%)',
+      destructive: 'hsl(30 80% 50%)', // orange instead of red — avoids blending with the crimson primary
       'destructive-foreground': 'hsl(0 0% 100%)',
       border: 'hsl(0 10% 18%)',
       input: 'hsl(0 10% 18%)',
@@ -177,12 +264,19 @@ export const THEME_PRESETS: ThemePreset[] = [
       'sidebar-accent-foreground': 'hsl(0 5% 90%)',
       'sidebar-border': 'hsl(0 10% 18%)',
       'sidebar-ring': 'hsl(0 70% 55%)'
+    },
+    previewColors: {
+      background: 'hsl(0 12% 8%)',
+      sidebar: 'hsl(0 12% 7%)',
+      primary: 'hsl(0 70% 55%)',
+      'muted-foreground': 'hsl(0 5% 55%)'
     }
   },
   {
     id: 'sunset',
     name: 'Sunset',
     type: 'dark',
+    cssNative: false,
     colors: {
       background: 'hsl(20 15% 8%)',
       foreground: 'hsl(30 10% 93%)',
@@ -211,16 +305,21 @@ export const THEME_PRESETS: ThemePreset[] = [
       'sidebar-accent-foreground': 'hsl(30 10% 90%)',
       'sidebar-border': 'hsl(20 12% 18%)',
       'sidebar-ring': 'hsl(25 85% 55%)'
+    },
+    previewColors: {
+      background: 'hsl(20 15% 8%)',
+      sidebar: 'hsl(20 15% 7%)',
+      primary: 'hsl(25 85% 55%)',
+      'muted-foreground': 'hsl(30 10% 55%)'
     }
   },
 
-  // =====================
-  // LIGHT THEMES (4)
-  // =====================
+  // Light HSL themes
   {
     id: 'daylight',
     name: 'Daylight',
     type: 'light',
+    cssNative: false,
     colors: {
       background: 'hsl(0 0% 100%)',
       foreground: 'hsl(260 15% 12%)',
@@ -249,12 +348,19 @@ export const THEME_PRESETS: ThemePreset[] = [
       'sidebar-accent-foreground': 'hsl(260 15% 20%)',
       'sidebar-border': 'hsl(260 10% 90%)',
       'sidebar-ring': 'hsl(270 60% 50%)'
+    },
+    previewColors: {
+      background: 'hsl(0 0% 100%)',
+      sidebar: 'hsl(260 15% 97%)',
+      primary: 'hsl(270 60% 50%)',
+      'muted-foreground': 'hsl(260 10% 45%)'
     }
   },
   {
     id: 'cloud',
     name: 'Cloud',
     type: 'light',
+    cssNative: false,
     colors: {
       background: 'hsl(0 0% 100%)',
       foreground: 'hsl(215 15% 15%)',
@@ -283,12 +389,19 @@ export const THEME_PRESETS: ThemePreset[] = [
       'sidebar-accent-foreground': 'hsl(215 15% 20%)',
       'sidebar-border': 'hsl(215 10% 90%)',
       'sidebar-ring': 'hsl(215 20% 35%)'
+    },
+    previewColors: {
+      background: 'hsl(0 0% 100%)',
+      sidebar: 'hsl(215 15% 97%)',
+      primary: 'hsl(215 20% 35%)',
+      'muted-foreground': 'hsl(215 10% 45%)'
     }
   },
   {
     id: 'mint',
     name: 'Mint',
     type: 'light',
+    cssNative: false,
     colors: {
       background: 'hsl(150 20% 99%)',
       foreground: 'hsl(160 15% 12%)',
@@ -317,12 +430,19 @@ export const THEME_PRESETS: ThemePreset[] = [
       'sidebar-accent-foreground': 'hsl(160 15% 20%)',
       'sidebar-border': 'hsl(150 12% 88%)',
       'sidebar-ring': 'hsl(160 60% 38%)'
+    },
+    previewColors: {
+      background: 'hsl(150 20% 99%)',
+      sidebar: 'hsl(150 18% 96%)',
+      primary: 'hsl(160 60% 38%)',
+      'muted-foreground': 'hsl(160 10% 45%)'
     }
   },
   {
     id: 'rose',
     name: 'Rose',
     type: 'light',
+    cssNative: false,
     colors: {
       background: 'hsl(350 20% 99%)',
       foreground: 'hsl(340 15% 12%)',
@@ -351,11 +471,17 @@ export const THEME_PRESETS: ThemePreset[] = [
       'sidebar-accent-foreground': 'hsl(340 15% 20%)',
       'sidebar-border': 'hsl(340 12% 88%)',
       'sidebar-ring': 'hsl(340 65% 55%)'
+    },
+    previewColors: {
+      background: 'hsl(350 20% 99%)',
+      sidebar: 'hsl(340 18% 96%)',
+      primary: 'hsl(340 65% 55%)',
+      'muted-foreground': 'hsl(340 10% 45%)'
     }
   }
 ]
 
-export const DEFAULT_THEME_ID = 'amethyst'
+export const DEFAULT_THEME_ID = 'glass-dark'
 
 export function getThemeById(id: string): ThemePreset | undefined {
   return THEME_PRESETS.find((preset) => preset.id === id)
