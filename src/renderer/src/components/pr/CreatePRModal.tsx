@@ -19,6 +19,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useGitStore } from '@/stores/useGitStore'
@@ -139,17 +140,6 @@ export function CreatePRModal({
         // Non-critical
       })
       .finally(() => setLoadingBranches(false))
-
-    // Fetch commit count
-    if (baseBranch || prTargetBranch) {
-      const target = prTargetBranch ?? 'main'
-      window.gitOps
-        .getRangeDiff(worktreePath, target)
-        .then((rd) => setCommitCount(rd.commitCount))
-        .catch(() => {
-          // Non-critical
-        })
-    }
   }, [open, worktreePath, prTargetBranch])
 
   // ── Refresh commit count when base branch changes ───────────────
@@ -310,6 +300,7 @@ export function CreatePRModal({
       updateStep('create', 'complete')
 
       // Attach the new PR
+      if (cancelledRef.current) return
       const prUrl = createResult.url ?? ''
       const prNumber = createResult.number ?? 0
       await attachPR(worktreeId, prNumber, prUrl)
@@ -365,39 +356,41 @@ export function CreatePRModal({
 
       {/* Base branch dropdown */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-foreground">Base branch</label>
-        <div className="relative">
-          <button
-            type="button"
-            className={cn(
-              'flex items-center justify-between w-full px-3 py-2 text-sm border rounded-md',
-              'bg-background hover:bg-accent/50 transition-colors text-left'
-            )}
-            onClick={() => setBranchDropdownOpen(!branchDropdownOpen)}
-          >
-            <span className="flex items-center gap-2">
-              <GitBranch className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="truncate">{baseBranch || 'Select base branch...'}</span>
-            </span>
-            <ChevronDown
+        <label htmlFor="pr-base-branch" className="text-sm font-medium text-foreground">Base branch</label>
+        <Popover open={branchDropdownOpen} onOpenChange={setBranchDropdownOpen}>
+          <PopoverTrigger asChild>
+            <button
+              id="pr-base-branch"
+              type="button"
               className={cn(
-                'h-3.5 w-3.5 text-muted-foreground transition-transform',
-                branchDropdownOpen && 'rotate-180'
+                'flex items-center justify-between w-full px-3 py-2 text-sm border rounded-md',
+                'bg-background hover:bg-accent/50 transition-colors text-left'
               )}
-            />
-          </button>
-          {branchDropdownOpen && (
-            <div className="absolute z-50 w-full mt-1 border rounded-md bg-popover shadow-md max-h-[200px] overflow-y-auto">
-              {loadingBranches ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                </div>
-              ) : branchOptions.length === 0 ? (
-                <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-                  No branches found
-                </div>
-              ) : (
-                branchOptions.map((name) => (
+            >
+              <span className="flex items-center gap-2">
+                <GitBranch className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="truncate">{baseBranch || 'Select base branch...'}</span>
+              </span>
+              <ChevronDown
+                className={cn(
+                  'h-3.5 w-3.5 text-muted-foreground transition-transform',
+                  branchDropdownOpen && 'rotate-180'
+                )}
+              />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+            {loadingBranches ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : branchOptions.length === 0 ? (
+              <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                No branches found
+              </div>
+            ) : (
+              <div className="max-h-[200px] overflow-y-auto">
+                {branchOptions.map((name) => (
                   <button
                     key={name}
                     type="button"
@@ -417,17 +410,18 @@ export function CreatePRModal({
                       <Check className="h-3 w-3 ml-auto text-primary shrink-0" />
                     )}
                   </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
+                ))}
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Title */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-foreground">Title</label>
+        <label htmlFor="pr-title" className="text-sm font-medium text-foreground">Title</label>
         <Input
+          id="pr-title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Leave empty to auto-generate"
@@ -436,8 +430,9 @@ export function CreatePRModal({
 
       {/* Description */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium text-foreground">Description</label>
+        <label htmlFor="pr-description" className="text-sm font-medium text-foreground">Description</label>
         <Textarea
+          id="pr-description"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder="Leave empty to auto-generate"
@@ -483,7 +478,7 @@ export function CreatePRModal({
               #{prResult.number} {prResult.title}
             </p>
             <p className="text-xs text-muted-foreground">
-              {branchInfo?.name ?? 'branch'} {'->'} {baseBranch}
+              {branchInfo?.name ?? 'branch'} {'\u2192'} {baseBranch}
             </p>
           </>
         )}
