@@ -85,7 +85,7 @@ function swapModePrefix(text: string, fromMode: PickerMode, toMode: PickerMode):
 function buildPrompt(mode: PickerMode, ticket: KanbanTicket): string {
   const prefix = getModePrefix(mode)
   const description = ticket.description ?? ''
-  const attachments = ticket.attachments as Array<{ type: string; url: string; label: string }>
+  const attachments = (ticket.attachments ?? []) as Array<{ type: string; url: string; label: string }>
 
   let attachmentsXml = ''
   if (attachments.length > 0) {
