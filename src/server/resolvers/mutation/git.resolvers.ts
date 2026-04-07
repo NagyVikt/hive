@@ -239,6 +239,18 @@ export const gitMutationResolvers: Resolvers = {
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
       }
+    },
+
+    gitCreatePR: async (_parent, { worktreePath, baseBranch, title, body }) => {
+      try {
+        const gitService = createGitService(worktreePath)
+        return await gitService.createPullRequest({ baseBranch, title, body })
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      }
     }
   }
 }

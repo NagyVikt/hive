@@ -1799,6 +1799,96 @@ export class GitService {
       return { success: false, error: message }
     }
   }
+
+  /**
+   * Create a pull request via gh CLI
+   */
+  async createPullRequest(options: {
+    baseBranch: string
+    title: string
+    body: string
+  }): Promise<{ success: boolean; url?: string; number?: number; error?: string }> {
+    const tempFile = join(tmpdir(), `hive-pr-body-${Date.now()}.md`)
+    try {
+      writeFileSync(tempFile, options.body, 'utf-8')
+      const { stdout } = await execFileAsync(
+        'gh',
+        ['pr', 'create', '--base', options.baseBranch, '--title', options.title, '--body-file', tempFile],
+        { cwd: this.repoPath }
+      )
+      const url = stdout.trim()
+      const match = url.match(/\/pull\/(\d+)/)
+      const number = match ? parseInt(match[1], 10) : undefined
+      return { success: true, url, number }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      log.error('Failed to create pull request', error instanceof Error ? error : new Error(message), {
+        repoPath: this.repoPath
+      })
+      return { success: false, error: message }
+    } finally {
+      try {
+        unlinkSync(tempFile)
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+  }
+
+  /**
+   * Get range diff between base branch and HEAD
+   */
+  async getRangeDiff(baseBranch: string): Promise<{
+    commitSummary: string
+    diffSummary: string
+    diffPatch: string
+    commitCount: number
+  }> {
+    const MAX_SUMMARY = 20 * 1024
+    const MAX_PATCH = 60 * 1024
+
+    const [commitLog, diffStat, diffPatch, revCount] = await Promise.all([
+      execFileAsync('git', ['log', '--oneline', `${baseBranch}..HEAD`], { cwd: this.repoPath })
+        .then((r) => r.stdout)
+        .catch(() => ''),
+      execFileAsync('git', ['diff', '--stat', `${baseBranch}..HEAD`], { cwd: this.repoPath })
+        .then((r) => r.stdout)
+        .catch(() => ''),
+      execFileAsync('git', ['diff', '--patch', '--minimal', `${baseBranch}..HEAD`], {
+        cwd: this.repoPath,
+        maxBuffer: MAX_PATCH * 2
+      })
+        .then((r) => r.stdout)
+        .catch(() => ''),
+      execFileAsync('git', ['rev-list', '--count', `${baseBranch}..HEAD`], { cwd: this.repoPath })
+        .then((r) => parseInt(r.stdout.trim(), 10) || 0)
+        .catch(() => 0)
+    ])
+
+    return {
+      commitSummary: commitLog.slice(0, MAX_SUMMARY),
+      diffSummary: diffStat.slice(0, MAX_SUMMARY),
+      diffPatch: diffPatch.slice(0, MAX_PATCH),
+      commitCount: revCount
+    }
+  }
+
+  /**
+   * Check if current branch has unpushed commits vs remote tracking branch
+   */
+  async needsPush(): Promise<boolean> {
+    try {
+      const { stdout } = await execFileAsync(
+        'git',
+        ['rev-list', '--count', '@{u}..HEAD'],
+        { cwd: this.repoPath }
+      )
+      return parseInt(stdout.trim(), 10) > 0
+    } catch {
+      // No tracking branch means we need an initial push
+      return true
+    }
+  }
 }
 
 /**

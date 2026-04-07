@@ -116,3 +116,17 @@ type GitPRReviewCommentsResult {
   comments: [PRReviewComment!]
   error: String
 }
+
+type CreatePRResult {
+  success: Boolean!
+  url: String
+  number: Int
+  error: String
+}
+
+type RangeDiff {
+  commitSummary: String!
+  diffSummary: String!
+  diffPatch: String!
+  commitCount: Int!
+}
