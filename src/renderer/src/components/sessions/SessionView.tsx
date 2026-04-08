@@ -4000,6 +4000,12 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     useSessionStore.getState().clearPendingPlan(sessionId)
     useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
 
+    // Abort the original backend session so it stops spinning
+    if (worktreePath && opencodeSessionId) {
+      useCommandApprovalStore.getState().clearSession(sessionId)
+      await window.opencodeOps.abort(worktreePath, opencodeSessionId)
+    }
+
     if (connectionId) {
       const handoffPrompt = `Implement the following plan\n${lastAssistantMessage.content}`
       const sessionStore = useSessionStore.getState()
@@ -4037,7 +4043,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     notifyKanbanSessionSync(sessionId, { type: 'supercharge', newSessionId: result.session.id })
     sessionStore.setActiveSession(result.session.id)
     await setModePromise
-  }, [messages, worktreeId, sessionRecord?.project_id, connectionId, sessionId])
+  }, [messages, worktreeId, sessionRecord?.project_id, connectionId, sessionId, worktreePath, opencodeSessionId])
 
   const handlePlanReadySuperpowers = useCallback(async () => {
     // 1. Extract plan content
@@ -4052,6 +4058,12 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
     useSessionStore.getState().clearPendingPlan(sessionId)
     useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+
+    // Abort the original backend session so it stops spinning
+    if (worktreePath && opencodeSessionId) {
+      useCommandApprovalStore.getState().clearSession(sessionId)
+      await window.opencodeOps.abort(worktreePath, opencodeSessionId)
+    }
 
     if (connectionId) {
       const sessionStore = useSessionStore.getState()
@@ -4132,7 +4144,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     // 6. Navigate to the new worktree
     worktreeStore.selectWorktree(dupResult.worktree.id)
     await setModePromise
-  }, [messages, worktreeId, pendingPlan, connectionId, sessionId])
+  }, [messages, worktreeId, pendingPlan, connectionId, sessionId, worktreePath, opencodeSessionId])
 
   const handlePlanReadySuperpowersLocal = useCallback(async () => {
     // 1. Extract plan content
@@ -4147,6 +4159,12 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
     useSessionStore.getState().clearPendingPlan(sessionId)
     useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+
+    // Abort the original backend session so it stops spinning
+    if (worktreePath && opencodeSessionId) {
+      useCommandApprovalStore.getState().clearSession(sessionId)
+      await window.opencodeOps.abort(worktreePath, opencodeSessionId)
+    }
 
     // 2. Create session in the same worktree (no duplication)
     const currentWorktreeId = worktreeId
@@ -4180,7 +4198,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     // 4. Navigate to the new session (same worktree)
     sessionStore.setActiveSession(newSessionId)
     await setModePromise
-  }, [messages, worktreeId, sessionRecord?.project_id, pendingPlan, sessionId])
+  }, [messages, worktreeId, sessionRecord?.project_id, pendingPlan, sessionId, worktreePath, opencodeSessionId])
 
   const handlePlanReadySaveAsTicket = useCallback(async () => {
     const projectId = sessionRecord?.project_id
