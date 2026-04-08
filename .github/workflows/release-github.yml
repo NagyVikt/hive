@@ -88,11 +88,19 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   finalize:
-    if: ${{ inputs.skip_finalize != true }}
+    if: ${{ success() && inputs.skip_finalize != true }}
     runs-on: ubuntu-latest
     needs: [build-mac, build-win, build-linux]
     steps:
       - uses: actions/checkout@v4
+      - name: Validate version
+        run: |
+          VERSION="${{ needs.build-mac.outputs.version }}"
+          if [ -z "$VERSION" ]; then
+            echo "::error::Version output from build-mac is empty"
+            exit 1
+          fi
+          echo "Releasing version: v$VERSION"
       - name: Publish release
         run: |
           NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes \
