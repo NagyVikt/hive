@@ -484,9 +484,9 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
                   borderState === 'blue' && 'border-blue-500/60',
                   borderState === 'violet' && 'border-violet-500/60',
                   // Left accent stripe for non-legendary marks
-                  ticket.mark === 'common' && 'border-l-4 border-l-green-500',
-                  ticket.mark === 'rare' && 'border-l-4 border-l-blue-500',
-                  ticket.mark === 'epic' && 'border-l-4 border-l-purple-500',
+                  ticket.mark === 'common' && 'border-l-4 !border-l-green-500',
+                  ticket.mark === 'rare' && 'border-l-4 !border-l-blue-500',
+                  ticket.mark === 'epic' && 'border-l-4 !border-l-purple-500',
                   // Legendary: extra padding + relative for frame overlay
                   ticket.mark === 'legendary' && 'relative p-3'
                 )}
@@ -752,8 +752,9 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
             </ContextMenuItem>
           )}
 
+          <ContextMenuSeparator />
           <ContextMenuSub>
-            <ContextMenuSubTrigger className="gap-2">
+            <ContextMenuSubTrigger data-testid="ctx-mark-submenu" className="gap-2">
               <Sparkles className="h-3.5 w-3.5" />
               Mark
             </ContextMenuSubTrigger>
