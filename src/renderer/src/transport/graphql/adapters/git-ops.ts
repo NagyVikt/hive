@@ -589,20 +589,32 @@ export function createGitOpsAdapter(): GitOpsApi {
       branch: string
     ): Promise<{
       success: boolean
-      files?: { relativePath: string; status: string }[]
+      files?: Array<{
+        relativePath: string
+        status: string
+        additions: number
+        deletions: number
+        binary: boolean
+      }>
       error?: string
     }> {
       const data = await graphqlQuery<{
         gitBranchDiffFiles: {
           success: boolean
-          files?: Array<{ path: string; status: string }>
+          files?: Array<{
+            path: string
+            status: string
+            additions: number
+            deletions: number
+            binary: boolean
+          }>
           error?: string
         }
       }>(
         `query ($worktreePath: String!, $baseBranch: String!) {
           gitBranchDiffFiles(worktreePath: $worktreePath, baseBranch: $baseBranch) {
             success error
-            files { path status }
+            files { path status additions deletions binary }
           }
         }`,
         { worktreePath, baseBranch: branch }
@@ -610,7 +622,60 @@ export function createGitOpsAdapter(): GitOpsApi {
       const r = data.gitBranchDiffFiles
       return {
         success: r.success,
-        files: r.files?.map((f) => ({ relativePath: f.path, status: f.status })),
+        files: r.files?.map((f) => ({
+          relativePath: f.path,
+          status: f.status,
+          additions: f.additions,
+          deletions: f.deletions,
+          binary: f.binary
+        })),
+        error: r.error ?? undefined
+      }
+    },
+
+    async getBranchBaseContent(
+      worktreePath: string,
+      branch: string,
+      filePath: string
+    ): Promise<{ success: boolean; content?: string; error?: string }> {
+      const data = await graphqlQuery<{
+        gitBranchBaseContent: { success: boolean; content?: string; error?: string }
+      }>(
+        `query ($worktreePath: String!, $branch: String!, $filePath: String!) {
+          gitBranchBaseContent(worktreePath: $worktreePath, branch: $branch, filePath: $filePath) {
+            success content error
+          }
+        }`,
+        { worktreePath, branch, filePath }
+      )
+      return data.gitBranchBaseContent
+    },
+
+    async getBranchBaseContentBase64(
+      worktreePath: string,
+      branch: string,
+      filePath: string
+    ): Promise<{ success: boolean; data?: string; mimeType?: string; error?: string }> {
+      const data = await graphqlQuery<{
+        gitBranchBaseContentBase64: {
+          success: boolean
+          content?: string
+          mimeType?: string
+          error?: string
+        }
+      }>(
+        `query ($worktreePath: String!, $branch: String!, $filePath: String!) {
+          gitBranchBaseContentBase64(worktreePath: $worktreePath, branch: $branch, filePath: $filePath) {
+            success content mimeType error
+          }
+        }`,
+        { worktreePath, branch, filePath }
+      )
+      const r = data.gitBranchBaseContentBase64
+      return {
+        success: r.success,
+        data: r.content ?? undefined,
+        mimeType: r.mimeType ?? undefined,
         error: r.error ?? undefined
       }
     },

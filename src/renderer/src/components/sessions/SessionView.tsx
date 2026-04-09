@@ -322,7 +322,7 @@ async function loadCodexDurableState(
     window.db.sessionActivity.list(sessionId)
   ])
   return {
-    messages: deriveCodexTimelineMessages(messageRows, activityRows),
+    messages: deriveCodexTimelineMessages(messageRows, activityRows, true),
     activities: activityRows
   }
 }
@@ -672,6 +672,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
   // Streaming rAF ref (frame-synced flushing for text updates)
   const rafRef = useRef<number | null>(null)
+  const pendingTextCharsRef = useRef(0)
 
   // Response logging refs
   const isLogModeRef = useRef<boolean>(false)
@@ -846,13 +847,23 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     if (!el) return
 
     const currentScrollTop = el.scrollTop
+    const previousScrollTop = lastScrollTopRef.current
     lastScrollTopRef.current = currentScrollTop
 
     const distanceFromBottom = el.scrollHeight - currentScrollTop - el.clientHeight
     const isNearBottom = distanceFromBottom < 80
     const hasManualIntent = manualScrollIntentRef.current || pointerDownInScrollerRef.current
+    const isManualScrollUp = hasManualIntent && currentScrollTop < previousScrollTop
 
     if (isProgrammaticScrollRef.current) {
+      manualScrollIntentRef.current = false
+      return
+    }
+
+    if (isManualScrollUp && (isSending || isStreaming)) {
+      userHasScrolledUpRef.current = true
+      isAutoScrollEnabledRef.current = false
+      setShowScrollFab(true)
       manualScrollIntentRef.current = false
       return
     }
@@ -1065,6 +1076,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   const flushStreamingState = useCallback(() => {
     setStreamingParts([...streamingPartsRef.current])
     setStreamingContent(streamingContentRef.current)
+    pendingTextCharsRef.current = 0
   }, [])
 
   // Schedule a frame-synced flush (requestAnimationFrame for text updates)
@@ -1108,10 +1120,19 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
       })
       // Also update legacy streamingContent for backward compat
       streamingContentRef.current += delta
-      // Frame-synced: batch text updates per animation frame
-      scheduleFlush()
+      pendingTextCharsRef.current += delta.length
+
+      // Flush immediately when enough text has accumulated or at natural line breaks
+      // to avoid the "batched single long line" visual jump effect.
+      const TEXT_FLUSH_CHAR_THRESHOLD = 100
+      if (pendingTextCharsRef.current >= TEXT_FLUSH_CHAR_THRESHOLD || delta.includes('\n')) {
+        pendingTextCharsRef.current = 0
+        immediateFlush()
+      } else {
+        scheduleFlush()
+      }
     },
-    [updateStreamingPartsRef, scheduleFlush]
+    [updateStreamingPartsRef, scheduleFlush, immediateFlush]
   )
 
   // Helper: set full text on the last text part (frame-synced)
@@ -1195,6 +1216,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
     }
+    pendingTextCharsRef.current = 0
     streamingPartsRef.current = []
     setStreamingParts([])
     streamingContentRef.current = ''
@@ -1295,9 +1317,11 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
           const opencodeMessages = Array.isArray(result.messages) ? result.messages : []
           if (isCodexSession) {
+            const isIdle = currentStoredStatus?.type !== 'busy'
             loadedMessages = mergeCodexActivityMessages(
               mapOpencodeMessagesToSessionViewMessages(opencodeMessages),
-              codexActivities
+              codexActivities,
+              isIdle
             )
           } else if (loadedMessages.length === 0) {
             loadedMessages = mapOpencodeMessagesToSessionViewMessages(opencodeMessages)
@@ -1536,6 +1560,16 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     // (not yet set up) and the global listener (which skips the active session).
     const unsubscribe = window.opencodeOps?.onStream
       ? window.opencodeOps.onStream((event) => {
+          // Debug: log ALL session.updated events, even if filtered out
+          if (event.type === 'session.updated') {
+            console.log('[TITLE_DEBUG] onStream received session.updated (before filter)', {
+              eventSessionId: event.sessionId,
+              componentSessionId: sessionId,
+              match: event.sessionId === sessionId,
+              title: event.data?.info?.title || event.data?.title
+            })
+          }
+
           // Only handle events for this session
           if (event.sessionId !== sessionId) return
 
@@ -1570,12 +1604,21 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
           // The SDK event structure is: { data: { info: { title, ... } } }
           if (event.type === 'session.updated') {
             const sessionTitle = event.data?.info?.title || event.data?.title
+            console.log('[TITLE_DEBUG] SessionView received session.updated', {
+              eventSessionId: event.sessionId,
+              componentSessionId: sessionId,
+              sessionTitle,
+              eventData: event.data
+            })
             // Skip OpenCode default placeholder titles like "New session - 2026-02-12T21:33:03.013Z"
             const isOpenCodeDefault = /^New session\s*-?\s*\d{4}-\d{2}-\d{2}/i.test(
               sessionTitle || ''
             )
             if (sessionTitle && !isOpenCodeDefault) {
+              console.log('[TITLE_DEBUG] SessionView calling updateSessionName', { sessionId, sessionTitle })
               useSessionStore.getState().updateSessionName(sessionId, sessionTitle)
+            } else {
+              console.log('[TITLE_DEBUG] SessionView SKIPPED updateSessionName', { sessionTitle, isOpenCodeDefault })
             }
             return
           }
@@ -2427,8 +2470,6 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
                 onComplete: () => {
                   // Session is done — flush and finalize immediately
                   setSessionRetry(null)
-                  setSessionErrorMessage(null)
-                  setSessionErrorStderr(null)
                   immediateFlush()
                   setIsSending(false)
                   setQueuedMessages([])
@@ -3082,7 +3123,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
       let loadedMessages = mapOpencodeMessagesToSessionViewMessages(rawMessages)
       if (session.agent_sdk === 'codex') {
         const durableState = await loadCodexDurableState(sessionId)
-        loadedMessages = mergeCodexActivityMessages(loadedMessages, durableState.activities)
+        loadedMessages = mergeCodexActivityMessages(loadedMessages, durableState.activities, true)
       }
       setMessages(loadedMessages)
       setViewState({ status: 'connected' })
@@ -3176,11 +3217,13 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
           opencodeSessionId
         )
         if (transcriptResult.success) {
+          const isIdle = !isStreaming
           const liveMessages = mergeCodexActivityMessages(
             mapOpencodeMessagesToSessionViewMessages(
               Array.isArray(transcriptResult.messages) ? transcriptResult.messages : []
             ),
-            durableState.activities
+            durableState.activities,
+            isIdle
           )
           setMessages(liveMessages)
           return liveMessages.length > 0
@@ -3981,6 +4024,12 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     useSessionStore.getState().clearPendingPlan(sessionId)
     useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
 
+    // Abort the original backend session so it stops spinning
+    if (worktreePath && opencodeSessionId) {
+      useCommandApprovalStore.getState().clearSession(sessionId)
+      await window.opencodeOps.abort(worktreePath, opencodeSessionId)
+    }
+
     if (connectionId) {
       const handoffPrompt = `Implement the following plan\n${lastAssistantMessage.content}`
       const sessionStore = useSessionStore.getState()
@@ -4018,7 +4067,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     notifyKanbanSessionSync(sessionId, { type: 'supercharge', newSessionId: result.session.id })
     sessionStore.setActiveSession(result.session.id)
     await setModePromise
-  }, [messages, worktreeId, sessionRecord?.project_id, connectionId, sessionId])
+  }, [messages, worktreeId, sessionRecord?.project_id, connectionId, sessionId, worktreePath, opencodeSessionId])
 
   const handlePlanReadySuperpowers = useCallback(async () => {
     // 1. Extract plan content
@@ -4033,6 +4082,12 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
     useSessionStore.getState().clearPendingPlan(sessionId)
     useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+
+    // Abort the original backend session so it stops spinning
+    if (worktreePath && opencodeSessionId) {
+      useCommandApprovalStore.getState().clearSession(sessionId)
+      await window.opencodeOps.abort(worktreePath, opencodeSessionId)
+    }
 
     if (connectionId) {
       const sessionStore = useSessionStore.getState()
@@ -4113,7 +4168,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     // 6. Navigate to the new worktree
     worktreeStore.selectWorktree(dupResult.worktree.id)
     await setModePromise
-  }, [messages, worktreeId, pendingPlan, connectionId, sessionId])
+  }, [messages, worktreeId, pendingPlan, connectionId, sessionId, worktreePath, opencodeSessionId])
 
   const handlePlanReadySuperpowersLocal = useCallback(async () => {
     // 1. Extract plan content
@@ -4128,6 +4183,12 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
     useSessionStore.getState().clearPendingPlan(sessionId)
     useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+
+    // Abort the original backend session so it stops spinning
+    if (worktreePath && opencodeSessionId) {
+      useCommandApprovalStore.getState().clearSession(sessionId)
+      await window.opencodeOps.abort(worktreePath, opencodeSessionId)
+    }
 
     // 2. Create session in the same worktree (no duplication)
     const currentWorktreeId = worktreeId
@@ -4161,7 +4222,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     // 4. Navigate to the new session (same worktree)
     sessionStore.setActiveSession(newSessionId)
     await setModePromise
-  }, [messages, worktreeId, sessionRecord?.project_id, pendingPlan, sessionId])
+  }, [messages, worktreeId, sessionRecord?.project_id, pendingPlan, sessionId, worktreePath, opencodeSessionId])
 
   const handlePlanReadySaveAsTicket = useCallback(async () => {
     const projectId = sessionRecord?.project_id

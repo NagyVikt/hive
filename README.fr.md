@@ -9,7 +9,9 @@
     <a href="https://github.com/morapelker/hive/releases/latest"><img src="https://img.shields.io/github/v/release/morapelker/hive?style=flat-square&logo=github&label=version" alt="Dernière version" /></a>
     <a href="https://github.com/morapelker/hive/releases"><img src="https://img.shields.io/github/downloads/morapelker/hive/total?style=flat-square&logo=github" alt="Téléchargements" /></a>
     <a href="https://github.com/morapelker/hive/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/morapelker/hive/release.yml?style=flat-square&logo=github-actions&label=build" alt="Statut du build" /></a>
-    <a href="#"><img src="https://img.shields.io/badge/macOS-only-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/macOS-supported-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Windows-supported-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Linux-supported-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" /></a>
     <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js" /></a>
     <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/electron-33-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" /></a>
     <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/typescript-5.7-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" /></a>
@@ -44,19 +46,31 @@
 
 ## Installation
 
-> 🍎 **macOS uniquement** — Support Windows et Linux à venir prochainement.
+Hive est compatible avec macOS, Windows et Linux.
 
-### Via Homebrew (recommandé)
+### macOS
+
+#### Homebrew (recommandé)
 
 ```bash
 brew install --cask hive-app
 ```
 
-### Téléchargement direct
+#### Téléchargement direct
 
 Téléchargez le dernier `.dmg` depuis [GitHub Releases](https://github.com/morapelker/hive/releases/latest).
 
-C'est tout ! Ouvrez Hive depuis votre dossier Applications et pointez-le vers un dépôt git.
+### Windows
+
+Téléchargez le dernier `.exe` depuis [GitHub Releases](https://github.com/morapelker/hive/releases/latest).
+
+### Linux
+
+Téléchargez le dernier `.AppImage` ou `.deb` depuis [GitHub Releases](https://github.com/morapelker/hive/releases/latest).
+
+---
+
+C'est tout ! Ouvrez Hive et pointez-le vers un dépôt git.
 
 ## Qu'est-ce que Hive ?
 
@@ -86,9 +100,6 @@ Naviguez et agissez rapidement avec les raccourcis clavier. Appuyez sur `Cmd+K` 
 
 ### 🎨 **Thèmes magnifiques**
 Choisissez parmi 10 thèmes soigneusement conçus — 6 sombres et 4 clairs. Changez instantanément selon votre préférence ou l'heure de la journée. Suit automatiquement le thème du système si désiré.
-
-### 🖥️ **Language Server Protocol**
-Intégration LSP complète avec des serveurs de langage par worktree. Profitez de la complétion intelligente, de la navigation vers la définition, des infobulles au survol et des diagnostics en temps réel pour TypeScript, Python, Go, Rust et bien plus.
 
 ### 🔌 **Connexions de Worktree**
 Connectez deux worktrees pour partager le contexte, comparer les implémentations ou collaborer en temps réel. Parfait pour revoir les changements entre branches, partager des sessions IA entre worktrees ou maintenir la cohérence lors du travail sur des fonctionnalités liées. Voyez les mises à jour en direct lorsque les worktrees connectés changent.
@@ -225,7 +236,6 @@ Connectez n'importe quelle paire de worktrees pour :
 
 ### 🚀 Bientôt disponible
 
-- **Support multi-plateforme** — Builds Windows et Linux
 - **Système de plugins** — Étendez Hive avec des intégrations personnalisées
 - **Synchronisation cloud** — Synchronisez paramètres, sessions et modèles de connexion entre appareils
 - **Fonctionnalités d'équipe** — Partagez des worktrees et collaborez en temps réel

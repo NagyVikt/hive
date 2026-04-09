@@ -866,7 +866,13 @@ export function registerGitFileHandlers(window: BrowserWindow): void {
       branch: string
     ): Promise<{
       success: boolean
-      files?: { relativePath: string; status: string }[]
+      files?: Array<{
+        relativePath: string
+        status: string
+        additions: number
+        deletions: number
+        binary: boolean
+      }>
       error?: string
     }> => {
       try {
@@ -878,6 +884,54 @@ export function registerGitFileHandlers(window: BrowserWindow): void {
           'Failed to get branch diff files',
           error instanceof Error ? error : new Error(message),
           { worktreePath, branch }
+        )
+        return { success: false, error: message }
+      }
+    }
+  )
+
+  // Get file content at the merge-base between a branch and HEAD
+  ipcMain.handle(
+    'git:branchBaseContent',
+    async (
+      _event,
+      worktreePath: string,
+      branch: string,
+      filePath: string
+    ): Promise<{ success: boolean; content?: string; error?: string }> => {
+      try {
+        const gitService = createGitService(worktreePath)
+        return await gitService.getBranchBaseContent(branch, filePath)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        log.error(
+          'Failed to get branch base content',
+          error instanceof Error ? error : new Error(message),
+          { worktreePath, branch, filePath }
+        )
+        return { success: false, error: message }
+      }
+    }
+  )
+
+  // Get file content as base64 at the merge-base between a branch and HEAD (for binary files)
+  ipcMain.handle(
+    'git:branchBaseContentBase64',
+    async (
+      _event,
+      worktreePath: string,
+      branch: string,
+      filePath: string
+    ): Promise<{ success: boolean; data?: string; mimeType?: string; error?: string }> => {
+      try {
+        const gitService = createGitService(worktreePath)
+        return await gitService.getBranchBaseContentBase64(branch, filePath)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unknown error'
+        log.error(
+          'Failed to get branch base content base64',
+          error instanceof Error ? error : new Error(message),
+          { worktreePath, branch, filePath }
         )
         return { success: false, error: message }
       }
@@ -1148,9 +1202,15 @@ export function registerGitFileHandlers(window: BrowserWindow): void {
       provider: string
     ): Promise<{ success: boolean; title?: string; body?: string; error?: string }> => {
       try {
-        const validProviders = ['claude-code', 'codex', 'opencode', 'terminal']
+        const validProviders = ['claude-code', 'codex', 'opencode']
         if (!validProviders.includes(provider)) {
-          return { success: false, error: `Invalid provider: ${provider}` }
+          return {
+            success: false,
+            error:
+              provider === 'terminal'
+                ? "Provider 'terminal' does not support PR content generation"
+                : `Invalid provider: ${provider}`
+          }
         }
 
         const gitService = createGitService(worktreePath)
@@ -1167,7 +1227,6 @@ export function registerGitFileHandlers(window: BrowserWindow): void {
           provider: provider as import('../services/agent-sdk-types').AgentSdkId
         })
 
-        if (!result) return { success: false, error: 'Content generation failed' }
         return { success: true, title: result.title, body: result.body }
       } catch (error) {
         return {

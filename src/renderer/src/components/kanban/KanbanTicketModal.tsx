@@ -54,6 +54,7 @@ import { useSessionStore } from '@/stores/useSessionStore'
 import { useWorktreeStore } from '@/stores/useWorktreeStore'
 import { useConnectionStore } from '@/stores/useConnectionStore'
 import { useWorktreeStatusStore } from '@/stores/useWorktreeStatusStore'
+import { useCommandApprovalStore } from '@/stores/useCommandApprovalStore'
 import { useProjectStore } from '@/stores/useProjectStore'
 import { useSettingsStore, resolveModelForSdk } from '@/stores/useSettingsStore'
 import { useGitStore } from '@/stores/useGitStore'
@@ -69,10 +70,14 @@ import { useScriptStore, fireRunScript, killRunScript } from '@/stores/useScript
 import { useQuestionStore, type QuestionRequest } from '@/stores/useQuestionStore'
 import { QuestionPrompt } from '@/components/sessions/QuestionPrompt'
 import { SessionStreamPanel } from './SessionStreamPanel'
+import {
+  ReviewTicketDiffSummary,
+  type ReviewTicketDiffFile
+} from './ReviewTicketDiffSummary'
 import { ProviderIcon, getProviderLabel } from '@/components/ui/provider-icon'
 import { useLifecycleActions } from '@/hooks/useLifecycleActions'
 import { usePinAndActivateSession } from '@/hooks/usePinAndActivateSession'
-import type { KanbanTicket, KanbanTicketUpdate } from '../../../../main/db/types'
+import type { KanbanTicket, KanbanTicketUpdate, Worktree } from '../../../../main/db/types'
 
 // ── Types ───────────────────────────────────────────────────────────
 type ModalMode = 'edit' | 'plan_review' | 'review' | 'error' | 'question'
@@ -621,6 +626,8 @@ function KanbanTicketModalContent({
           sessionRecord={effectiveSession}
           updateTicket={updateTicket}
           dualPane={wantsDualPane}
+          worktreePath={worktreePath}
+          opcSessionId={opcSessionId}
         />
       )
       break
@@ -667,6 +674,14 @@ function KanbanTicketModalContent({
               worktreePath={worktreePath!}
               opencodeSessionId={opcSessionId!}
               title={ticket.title}
+              headerAction={(
+                <JumpToSessionButton
+                  ticket={ticket}
+                  onClose={onClose}
+                  label="Go to session"
+                  testId="go-to-session-btn"
+                />
+              )}
               fullWidth
             />
           ) : (
@@ -1143,7 +1158,9 @@ function PlanReviewModeContent({
   pendingPlan,
   sessionRecord,
   updateTicket,
-  dualPane = false
+  dualPane = false,
+  worktreePath,
+  opcSessionId
 }: {
   ticket: KanbanTicket
   onClose: () => void
@@ -1155,6 +1172,8 @@ function PlanReviewModeContent({
   } | null
   updateTicket: (ticketId: string, projectId: string, data: KanbanTicketUpdate) => Promise<void>
   dualPane?: boolean
+  worktreePath: string | null
+  opcSessionId: string | null
 }) {
   const [isActioning, setIsActioning] = useState(false)
   const [followUpText, setFollowUpText] = useState('')
@@ -1450,6 +1469,12 @@ function PlanReviewModeContent({
       useSessionStore.getState().clearPendingPlan(sessionId)
       useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
 
+      // Abort the original backend session so it stops spinning
+      if (worktreePath && opcSessionId) {
+        useCommandApprovalStore.getState().clearSession(sessionId)
+        await window.opencodeOps.abort(worktreePath, opcSessionId)
+      }
+
       // Look up worktree and project for duplication
       const worktree = findWorktreeById(ticket.worktree_id!)
       if (!worktree) {
@@ -1503,7 +1528,7 @@ function PlanReviewModeContent({
     } finally {
       setIsActioning(false)
     }
-  }, [ticket, isActioning, planContent, onClose, eagerSuperchargeStart])
+  }, [ticket, isActioning, planContent, onClose, eagerSuperchargeStart, worktreePath, opcSessionId])
 
   // ── Supercharge Local handler (same worktree, no duplication) ───
   const handleSuperchargeLocal = useCallback(async () => {
@@ -1515,8 +1540,14 @@ function PlanReviewModeContent({
       useSessionStore.getState().clearPendingPlan(sessionId)
       useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
 
-      const worktreePath = findWorktreePathById(ticket.worktree_id)
-      if (!worktreePath) {
+      // Abort the original backend session so it stops spinning
+      if (worktreePath && opcSessionId) {
+        useCommandApprovalStore.getState().clearSession(sessionId)
+        await window.opencodeOps.abort(worktreePath, opcSessionId)
+      }
+
+      const localWorktreePath = findWorktreePathById(ticket.worktree_id)
+      if (!localWorktreePath) {
         toast.error('Could not find worktree path')
         return
       }
@@ -1542,13 +1573,13 @@ function PlanReviewModeContent({
       onClose()
 
       // Eagerly connect + send /using-superpowers in background; follow-up dispatched by global listener
-      await eagerSuperchargeStart(worktreePath, newSessionId)
+      await eagerSuperchargeStart(localWorktreePath, newSessionId)
     } catch {
       toast.error('Failed to supercharge locally')
     } finally {
       setIsActioning(false)
     }
-  }, [ticket, isActioning, planContent, onClose, eagerSuperchargeStart])
+  }, [ticket, isActioning, planContent, onClose, eagerSuperchargeStart, worktreePath, opcSessionId])
 
   return (
     <>
@@ -1690,11 +1721,23 @@ function ReviewModeContent({
   updateTicket: (ticketId: string, projectId: string, data: KanbanTicketUpdate) => Promise<void>
   dualPane?: boolean
 }) {
+  const worktree = useMemo(
+    () => (ticket.worktree_id ? findWorktreeById(ticket.worktree_id) : null),
+    [ticket.worktree_id]
+  )
   const [followUpText, setFollowUpText] = useState('')
   const [followUpMode, setFollowUpMode] = useState<FollowUpMode>('build')
   const [isSending, setIsSending] = useState(false)
+  const [resolvedWorktree, setResolvedWorktree] = useState<Worktree | null>(worktree)
+  const [resolvedBaseBranch, setResolvedBaseBranch] = useState<string | null>(null)
+  const [diffSummary, setDiffSummary] = useState<ReviewTicketDiffFile[]>([])
+  const [diffSummaryLoading, setDiffSummaryLoading] = useState(false)
+  const [diffSummaryError, setDiffSummaryError] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const lifecycle = useLifecycleActions(ticket.worktree_id)
+  const isCreatingPR = useGitStore((s) =>
+    ticket.worktree_id ? s.creatingPRByWorktreeId.get(ticket.worktree_id) === true : false
+  )
   const { pinAndActivate: pinAndActivateSession, lifecycleLoading } = usePinAndActivateSession(onClose)
 
   // Load live PR state so merge-button guard works (hide if already merged/closed)
@@ -1711,12 +1754,111 @@ function ReviewModeContent({
     [ticket.project_id]
   )
 
-  const worktree = useMemo(
-    () => (ticket.worktree_id ? findWorktreeById(ticket.worktree_id) : null),
-    [ticket.worktree_id]
-  )
+  useEffect(() => {
+    let cancelled = false
 
-  const hasRunScript = !!project?.run_script && !!worktree
+    if (!ticket.worktree_id) {
+      setResolvedWorktree(null)
+      return
+    }
+
+    if (worktree) {
+      setResolvedWorktree(worktree)
+      return
+    }
+
+    window.db.worktree.get(ticket.worktree_id).then((dbWorktree) => {
+      if (!cancelled) {
+        setResolvedWorktree(dbWorktree ?? null)
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setResolvedWorktree(null)
+      }
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [ticket.worktree_id, worktree])
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!ticket.worktree_id || !resolvedWorktree) {
+      setResolvedBaseBranch(null)
+      return
+    }
+
+    ;(async () => {
+      try {
+        const defaultWorktrees = await window.db.worktree.getActiveByProject(ticket.project_id)
+        const defaultWt = defaultWorktrees.find((w) => w.is_default)
+        if (!cancelled) {
+          setResolvedBaseBranch(resolvedWorktree.base_branch ?? defaultWt?.branch_name ?? null)
+        }
+      } catch {
+        if (!cancelled) {
+          setResolvedBaseBranch(resolvedWorktree.base_branch ?? null)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [ticket.project_id, ticket.worktree_id, resolvedWorktree])
+
+  const hasRunScript = !!project?.run_script && !!resolvedWorktree
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!dualPane || !resolvedWorktree?.path || !resolvedBaseBranch) {
+      setDiffSummary([])
+      setDiffSummaryError(null)
+      setDiffSummaryLoading(false)
+      return
+    }
+
+    const loadDiffSummary = async (): Promise<void> => {
+      setDiffSummaryLoading(true)
+      try {
+        const result = await window.gitOps.getBranchDiffFiles(resolvedWorktree.path, resolvedBaseBranch)
+        if (cancelled) return
+
+        if (result.success) {
+          setDiffSummary(result.files ?? [])
+          setDiffSummaryError(null)
+        } else {
+          setDiffSummary([])
+          setDiffSummaryError(result.error ?? 'Failed to load changed files')
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setDiffSummary([])
+          setDiffSummaryError(error instanceof Error ? error.message : 'Failed to load changed files')
+        }
+      } finally {
+        if (!cancelled) {
+          setDiffSummaryLoading(false)
+        }
+      }
+    }
+
+    loadDiffSummary()
+
+    const cleanup = window.gitOps.onStatusChanged((event) => {
+      if (event.worktreePath === resolvedWorktree.path) {
+        void loadDiffSummary()
+      }
+    })
+
+    return () => {
+      cancelled = true
+      cleanup()
+    }
+  }, [dualPane, resolvedWorktree?.path, resolvedBaseBranch])
 
   const runRunning = useScriptStore((s) =>
     ticket.worktree_id ? (s.scriptStates[ticket.worktree_id]?.runRunning ?? false) : false
@@ -1849,14 +1991,14 @@ function ReviewModeContent({
 
   // ── Run / Stop handlers ────────────────────────────────────────────
   const handleRunScript = useCallback(() => {
-    if (!ticket.worktree_id || !worktree || !project?.run_script || runRunning) return
+    if (!ticket.worktree_id || !resolvedWorktree || !project?.run_script || runRunning) return
     const commands = project.run_script
       .split('\n')
       .map((l) => l.trim())
       .filter((l) => l && !l.startsWith('#'))
-    fireRunScript(ticket.worktree_id, commands, worktree.path)
+    fireRunScript(ticket.worktree_id, commands, resolvedWorktree.path)
     toast.success('Run script started')
-  }, [ticket.worktree_id, worktree, project, runRunning])
+  }, [ticket.worktree_id, resolvedWorktree, project, runRunning])
 
   const handleStopScript = useCallback(async () => {
     if (!ticket.worktree_id) return
@@ -1925,6 +2067,15 @@ function ReviewModeContent({
             View the full session conversation by clicking &quot;Jump to session&quot; above.
           </p>
         </div>
+      )}
+
+      {dualPane && (
+        <ReviewTicketDiffSummary
+          baseBranch={resolvedBaseBranch}
+          files={diffSummary}
+          loading={diffSummaryLoading}
+          error={diffSummaryError}
+        />
       )}
 
       {/* Followup input area */}
@@ -2003,16 +2154,38 @@ function ReviewModeContent({
           </Button>
         )}
         {ticket.worktree_id && lifecycle.isGitHub && !lifecycle.hasAttachedPR && (
-          <Button
-            type="button"
-            variant="outline"
-            className="gap-1.5"
-            disabled={lifecycleLoading}
-            onClick={() => useGitStore.getState().setCreatePRModalOpen(true)}
-          >
-            <GitPullRequest className="h-3.5 w-3.5" />
-            Create PR
-          </Button>
+          isCreatingPR ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-1.5"
+              disabled
+            >
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Creating PR...
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-1.5"
+              disabled={lifecycleLoading}
+              onClick={() => {
+                const worktreePath = findWorktreePathById(ticket.worktree_id!)
+                if (worktreePath) {
+                  useGitStore.getState().setCreatePRModalOpen(true, {
+                    worktreeId: ticket.worktree_id!,
+                    worktreePath,
+                  })
+                } else {
+                  toast.error('Could not find worktree path')
+                }
+              }}
+            >
+              <GitPullRequest className="h-3.5 w-3.5" />
+              Create PR
+            </Button>
+          )
         )}
         {ticket.worktree_id && lifecycle.isGitHub && lifecycle.hasAttachedPR &&
           lifecycle.prLiveState?.state !== 'MERGED' && lifecycle.prLiveState?.state !== 'CLOSED' && (
@@ -2320,10 +2493,14 @@ function QuestionModeContent({
 
 function JumpToSessionButton({
   ticket,
-  onClose
+  onClose,
+  label = 'Jump to session',
+  testId = 'jump-to-session-btn'
 }: {
   ticket: KanbanTicket
   onClose: () => void
+  label?: string
+  testId?: string
 }) {
   const handleJump = useCallback(() => {
     if (!ticket.current_session_id) return
@@ -2353,12 +2530,12 @@ function JumpToSessionButton({
       type="button"
       variant="ghost"
       size="sm"
-      data-testid="jump-to-session-btn"
+      data-testid={testId}
       className="gap-1 text-xs text-muted-foreground hover:text-foreground"
       onClick={handleJump}
     >
       <ExternalLink className="h-3.5 w-3.5" />
-      Jump to session
+      {label}
     </Button>
   )
 }

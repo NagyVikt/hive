@@ -256,9 +256,15 @@ export const gitMutationResolvers: Resolvers = {
 
     gitGeneratePRContent: async (_parent, { worktreePath, baseBranch, provider }) => {
       try {
-        const validProviders = ['claude-code', 'codex', 'opencode', 'terminal']
+        const validProviders = ['claude-code', 'codex', 'opencode']
         if (!validProviders.includes(provider)) {
-          return { success: false, error: `Invalid provider: ${provider}` }
+          return {
+            success: false,
+            error:
+              provider === 'terminal'
+                ? "Provider 'terminal' does not support PR content generation"
+                : `Invalid provider: ${provider}`
+          }
         }
 
         const gitService = createGitService(worktreePath)
@@ -275,7 +281,6 @@ export const gitMutationResolvers: Resolvers = {
           provider: provider as AgentSdkId
         })
 
-        if (!result) return { success: false, error: 'Content generation failed' }
         return { success: true, title: result.title, body: result.body }
       } catch (error) {
         return { success: false, error: error instanceof Error ? error.message : String(error) }

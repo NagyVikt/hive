@@ -4,7 +4,7 @@ import { create } from 'zustand'
 // Types
 // ---------------------------------------------------------------------------
 
-type PRNotificationStatus = 'loading' | 'success' | 'error' | 'info'
+type PRNotificationStatus = 'loading' | 'success' | 'error' | 'info' | 'warning'
 
 interface PRNotification {
   id: string
@@ -13,6 +13,7 @@ interface PRNotification {
   description?: string
   prUrl?: string
   prNumber?: number
+  worktreeId?: string
 }
 
 interface PRNotificationState {

@@ -56,6 +56,7 @@ interface GitStoreState {
 
   // PR lifecycle - keyed by worktree ID
   attachedPR: Map<string, AttachedPR>
+  creatingPRByWorktreeId: Map<string, boolean>
 
   // Cross-worktree merge default - keyed by project ID
   defaultMergeBranch: Map<string, string>
@@ -70,6 +71,8 @@ interface GitStoreState {
 
   // Create PR modal
   createPRModalOpen: boolean
+  createPRWorktreeId: string | null
+  createPRWorktreePath: string | null
 
   // Actions
   loadFileStatuses: (worktreePath: string) => Promise<void>
@@ -95,6 +98,7 @@ interface GitStoreState {
 
   // PR lifecycle actions
   setAttachedPR: (worktreeId: string, pr: AttachedPR | null) => void
+  setCreatingPR: (worktreeId: string, creating: boolean) => void
   attachPR: (worktreeId: string, prNumber: number, prUrl: string) => Promise<void>
   detachPR: (worktreeId: string) => Promise<void>
 
@@ -108,7 +112,7 @@ interface GitStoreState {
   setSelectedDiffBranch: (worktreePath: string, branch: string) => void
 
   // Create PR modal actions
-  setCreatePRModalOpen: (open: boolean) => void
+  setCreatePRModalOpen: (open: boolean, context?: { worktreeId: string; worktreePath: string }) => void
 
   // Commit, Push, Pull actions
   commit: (
@@ -149,6 +153,7 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
 
   // PR lifecycle
   attachedPR: new Map(),
+  creatingPRByWorktreeId: new Map(),
 
   // Cross-worktree merge default
   defaultMergeBranch: new Map(),
@@ -162,6 +167,8 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
 
   // Create PR modal
   createPRModalOpen: false,
+  createPRWorktreeId: null,
+  createPRWorktreePath: null,
 
   // Load file statuses for a worktree
   loadFileStatuses: async (worktreePath: string) => {
@@ -526,8 +533,33 @@ export const useGitStore = create<GitStoreState>()((set, get) => ({
   },
 
   // Open/close create PR modal
-  setCreatePRModalOpen: (open: boolean) => {
-    set({ createPRModalOpen: open })
+  setCreatePRModalOpen: (open: boolean, context?: { worktreeId: string; worktreePath: string }) => {
+    if (open && context) {
+      set({
+        createPRModalOpen: true,
+        createPRWorktreeId: context.worktreeId,
+        createPRWorktreePath: context.worktreePath,
+      })
+    } else if (!open) {
+      set({
+        createPRModalOpen: false,
+        createPRWorktreeId: null,
+        createPRWorktreePath: null,
+      })
+    }
+    // Opening without context is a no-op (all callers must provide context)
+  },
+
+  setCreatingPR: (worktreeId: string, creating: boolean) => {
+    set((state) => {
+      const next = new Map(state.creatingPRByWorktreeId)
+      if (creating) {
+        next.set(worktreeId, true)
+      } else {
+        next.delete(worktreeId)
+      }
+      return { creatingPRByWorktreeId: next }
+    })
   },
 
   // Commit staged changes

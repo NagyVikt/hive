@@ -9,7 +9,9 @@
     <a href="https://github.com/morapelker/hive/releases/latest"><img src="https://img.shields.io/github/v/release/morapelker/hive?style=flat-square&logo=github&label=version" alt="최신 릴리스" /></a>
     <a href="https://github.com/morapelker/hive/releases"><img src="https://img.shields.io/github/downloads/morapelker/hive/total?style=flat-square&logo=github" alt="다운로드" /></a>
     <a href="https://github.com/morapelker/hive/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/morapelker/hive/release.yml?style=flat-square&logo=github-actions&label=build" alt="빌드 상태" /></a>
-    <a href="#"><img src="https://img.shields.io/badge/macOS-only-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/macOS-supported-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Windows-supported-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Linux-supported-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" /></a>
     <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js" /></a>
     <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/electron-33-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" /></a>
     <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/typescript-5.7-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" /></a>
@@ -44,19 +46,31 @@
 
 ## 설치
 
-> 🍎 **macOS 전용** — Windows와 Linux 지원은 곧 제공 예정입니다.
+Hive는 macOS, Windows, Linux를 지원합니다.
 
-### Homebrew (권장)
+### macOS
+
+#### Homebrew (권장)
 
 ```bash
 brew install --cask hive-app
 ```
 
-### 직접 다운로드
+#### 직접 다운로드
 
 최신 `.dmg`를 [GitHub Releases](https://github.com/morapelker/hive/releases/latest)에서 다운로드하세요.
 
-끝입니다! 응용 프로그램 폴더에서 Hive를 열고 git 리포지토리를 지정하세요.
+### Windows
+
+최신 `.exe`를 [GitHub Releases](https://github.com/morapelker/hive/releases/latest)에서 다운로드하세요.
+
+### Linux
+
+최신 `.AppImage` 또는 `.deb`를 [GitHub Releases](https://github.com/morapelker/hive/releases/latest)에서 다운로드하세요.
+
+---
+
+끝입니다! Hive를 열고 git 리포지토리를 지정하세요.
 
 ## Hive란?
 
@@ -86,9 +100,6 @@ Hive는 AI 에이전트 오케스트레이터입니다. 실행 중인 모든 에
 
 ### 🎨 **아름다운 테마**
 10가지 정성스럽게 제작된 테마 중 선택 — 다크 6종, 라이트 4종. 취향이나 시간대에 맞게 즉시 전환. 원하면 시스템 테마를 자동으로 따라갑니다.
-
-### 🖥️ **Language Server Protocol**
-Worktree별 언어 서버를 통한 완전한 LSP 통합. TypeScript, Python, Go, Rust 등에서 지능적인 코드 완성, 정의로 이동, 호버 툴팁, 실시간 진단을 이용할 수 있습니다.
 
 ### 🔌 **Worktree 커넥션**
 두 Worktree를 연결하여 컨텍스트를 공유하고, 구현을 비교하거나, 실시간으로 협업. 브랜치 간 변경 리뷰, Worktree 간 AI 세션 공유, 관련 기능 작업 시 일관성 유지에 완벽합니다. 연결된 Worktree의 변경 사항을 라이브로 확인.
@@ -225,7 +236,6 @@ Hive의 **Worktree 커넥션** 기능은 두 Worktree를 연결하여 서로 다
 
 ### 🚀 곧 출시
 
-- **크로스 플랫폼 지원** — Windows와 Linux 빌드
 - **플러그인 시스템** — 커스텀 통합으로 Hive 확장
 - **클라우드 동기화** — 설정, 세션, 연결 템플릿을 기기 간 동기화
 - **팀 기능** — Worktree를 공유하고 실시간으로 협업

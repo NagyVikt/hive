@@ -2,7 +2,7 @@ import { homedir, tmpdir } from 'node:os'
 import { spawn } from 'node:child_process'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { readFile, unlink } from 'node:fs/promises'
+import { readFile, unlink, writeFile } from 'node:fs/promises'
 
 import { loadClaudeSDK } from './claude-sdk-loader'
 import { detectAgentSdks } from './system-info'
@@ -19,6 +19,12 @@ const MAX_OUTPUT_SIZE = 1024 * 1024 // 1 MB
 let cachedSdks: AgentSdkDetection | null = null
 let cacheTimestamp = 0
 const SDK_CACHE_TTL_MS = 60_000
+
+let claudeBinaryPath: string | null = null
+
+export function setClaudeBinaryPath(path: string | null): void {
+  claudeBinaryPath = path
+}
 
 function getCachedSdkDetection(): AgentSdkDetection {
   const now = Date.now()
@@ -45,34 +51,61 @@ export async function generateText(
   prompt: string,
   systemPrompt: string,
   provider: AgentSdkId,
-  modelOverride?: string
+  modelOverride?: string,
+  outputSchema?: string
 ): Promise<string | null> {
   const resolvedProvider = resolveProvider(provider)
   if (!resolvedProvider) {
-    log.warn('No text generation provider available')
-    return null
+    throw new Error(
+      'No AI provider available. Ensure claude, codex, or opencode CLI is installed and on your PATH.'
+    )
   }
 
   if (resolvedProvider !== provider) {
     log.info('Falling back to available provider', { requested: provider, resolved: resolvedProvider })
   }
 
+  let lastError: Error | null = null
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const result = await generateWithProvider(resolvedProvider, prompt, systemPrompt, modelOverride)
+      const result = await generateWithProvider(
+        resolvedProvider,
+        prompt,
+        systemPrompt,
+        modelOverride,
+        outputSchema
+      )
       if (result !== null) {
-        log.info('Text generation succeeded', { provider: resolvedProvider, attempt })
+        log.info('Text generation succeeded', {
+          requestedProvider: provider,
+          resolvedProvider,
+          attempt,
+          usedStructuredOutput: Boolean(outputSchema)
+        })
         return result
       }
-      log.warn('Text generation returned empty result', { provider: resolvedProvider, attempt })
+      lastError = new Error('Text generation returned empty result')
+      log.warn('Text generation returned empty result', {
+        requestedProvider: provider,
+        resolvedProvider,
+        attempt
+      })
     } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err)
-      log.warn('Text generation attempt failed', { provider: resolvedProvider, attempt, error: errMsg })
+      lastError = err instanceof Error ? err : new Error(String(err))
+      log.warn('Text generation attempt failed', {
+        requestedProvider: provider,
+        resolvedProvider,
+        attempt,
+        error: lastError.message
+      })
     }
   }
 
-  log.warn('Text generation: all attempts exhausted', { provider: resolvedProvider })
-  return null
+  log.warn('Text generation: all attempts exhausted', {
+    requestedProvider: provider,
+    resolvedProvider
+  })
+  throw lastError ?? new Error('Text generation failed: all attempts returned empty results')
 }
 
 /**
@@ -106,13 +139,14 @@ function generateWithProvider(
   provider: AgentSdkId,
   prompt: string,
   systemPrompt: string,
-  modelOverride?: string
+  modelOverride?: string,
+  outputSchema?: string
 ): Promise<string | null> {
   switch (provider) {
     case 'claude-code':
       return generateWithClaude(prompt, systemPrompt, modelOverride)
     case 'codex':
-      return generateWithCodex(prompt, systemPrompt, modelOverride)
+      return generateWithCodex(prompt, systemPrompt, modelOverride, outputSchema)
     case 'opencode':
       return generateWithOpenCode(prompt, systemPrompt, modelOverride)
     case 'terminal':
@@ -128,6 +162,7 @@ async function generateWithClaude(prompt: string, systemPrompt: string, modelOve
 
   const abortController = new AbortController()
   const timeout = setTimeout(() => abortController.abort(), TIMEOUT_MS)
+  let streamedText = ''
 
   try {
     const query = sdk.query({
@@ -135,25 +170,68 @@ async function generateWithClaude(prompt: string, systemPrompt: string, modelOve
       options: {
         cwd: homedir(),
         model: modelOverride ?? 'haiku',
-        maxTurns: 1,
+        maxTurns: 2,
         abortController,
         systemPrompt,
         effort: 'low',
         thinking: { type: 'disabled' },
         tools: [],
-        persistSession: false
+        persistSession: false,
+        ...(claudeBinaryPath ? { pathToClaudeCodeExecutable: claudeBinaryPath } : {})
       }
     })
 
     let resultText = ''
     for await (const msg of query) {
+      // Collect assistant text as it streams — fallback if the session ends early
+      if (msg.type === 'assistant') {
+        const content = (msg as Record<string, unknown>).message
+        if (content && typeof content === 'object') {
+          const blocks = (content as Record<string, unknown>).content
+          if (Array.isArray(blocks)) {
+            for (const block of blocks) {
+              if (block && typeof block === 'object' && (block as Record<string, unknown>).type === 'text') {
+                streamedText += (block as Record<string, unknown>).text ?? ''
+              }
+            }
+          }
+        }
+      }
       if (msg.type === 'result') {
-        resultText = (msg as { result?: string }).result ?? ''
+        const resultMsg = msg as Record<string, unknown>
+        if (typeof resultMsg.subtype === 'string' && resultMsg.subtype.startsWith('error')) {
+          // For max_turns errors, use whatever text was already streamed
+          if (resultMsg.subtype === 'error_max_turns' && streamedText) {
+            log.info('Using streamed text after max_turns reached')
+            resultText = streamedText
+            break
+          }
+          const errors = Array.isArray(resultMsg.errors) ? resultMsg.errors : []
+          throw new Error(
+            `Claude generation error (${resultMsg.subtype}): ${errors.join('; ') || 'unknown'}`
+          )
+        }
+        resultText = (resultMsg.result as string) ?? ''
         break
       }
     }
 
     return resultText || null
+  } catch (err) {
+    // If we collected streamed text before the error, use it as fallback
+    if (streamedText) {
+      log.warn('Using streamed text after error', {
+        error: err instanceof Error ? err.message : String(err),
+        streamedTextLength: streamedText.length
+      })
+      return streamedText
+    }
+    // Convert AbortError from timeout into a clearer message
+    if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'))) {
+      log.warn('Claude generation timed out', { error: err.message })
+      throw new Error(`AI content generation timed out after ${TIMEOUT_MS / 1000}s`)
+    }
+    throw err
   } finally {
     clearTimeout(timeout)
   }
@@ -166,16 +244,37 @@ async function generateWithClaude(prompt: string, systemPrompt: string, modelOve
 async function generateWithCodex(
   prompt: string,
   systemPrompt: string,
-  modelOverride?: string
+  modelOverride?: string,
+  outputSchema?: string
 ): Promise<string | null> {
   const outputFile = join(tmpdir(), `hive-codex-${randomUUID()}.txt`)
+  const schemaFile = outputSchema
+    ? join(tmpdir(), `hive-codex-schema-${randomUUID()}.json`)
+    : null
   const model = modelOverride ?? 'gpt-5.4-mini'
   const fullPrompt = `${systemPrompt}\n\n${prompt}`
 
   try {
+    await writeFile(outputFile, '')
+    const args = [
+      'exec',
+      '--ephemeral',
+      '-s',
+      'read-only',
+      '--model',
+      model,
+      '--config',
+      'model_reasoning_effort="low"'
+    ]
+    if (schemaFile && outputSchema) {
+      await writeFile(schemaFile, outputSchema)
+      args.push('--output-schema', schemaFile)
+    }
+    args.push('--output-last-message', outputFile, '-')
+
     await spawnWithStdin(
       'codex',
-      ['exec', '--ephemeral', '-s', 'read-only', '--model', model, '--output-last-message', outputFile, '-'],
+      args,
       fullPrompt
     )
     const output = await readFile(outputFile, 'utf-8')
@@ -186,6 +285,13 @@ async function generateWithCodex(
       await unlink(outputFile)
     } catch {
       // File may not exist if codex failed before writing
+    }
+    if (schemaFile) {
+      try {
+        await unlink(schemaFile)
+      } catch {
+        // File may not exist if codex failed before writing
+      }
     }
   }
 }

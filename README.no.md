@@ -9,7 +9,9 @@
     <a href="https://github.com/morapelker/hive/releases/latest"><img src="https://img.shields.io/github/v/release/morapelker/hive?style=flat-square&logo=github&label=version" alt="Latest Release" /></a>
     <a href="https://github.com/morapelker/hive/releases"><img src="https://img.shields.io/github/downloads/morapelker/hive/total?style=flat-square&logo=github" alt="Downloads" /></a>
     <a href="https://github.com/morapelker/hive/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/morapelker/hive/release.yml?style=flat-square&logo=github-actions&label=build" alt="Build Status" /></a>
-    <a href="#"><img src="https://img.shields.io/badge/macOS-only-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/macOS-supported-000000?style=flat-square&logo=apple&logoColor=white" alt="macOS" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Windows-supported-0078D4?style=flat-square&logo=windows&logoColor=white" alt="Windows" /></a>
+    <a href="#"><img src="https://img.shields.io/badge/Linux-supported-FCC624?style=flat-square&logo=linux&logoColor=black" alt="Linux" /></a>
     <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-339933?style=flat-square&logo=node.js&logoColor=white" alt="Node.js" /></a>
     <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/electron-33-47848F?style=flat-square&logo=electron&logoColor=white" alt="Electron" /></a>
     <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/typescript-5.7-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript" /></a>
@@ -37,19 +39,31 @@
 
 ## Installasjon
 
-> 🍎 **Kun macOS** — Windows og Linux-støtte kommer snart.
+Hive støtter macOS, Windows og Linux.
 
-### Via Homebrew (Anbefalt)
+### macOS
+
+#### Homebrew (Anbefalt)
 
 ```bash
 brew install --cask hive-app
 ```
 
-### Direkte nedlasting
+#### Direkte nedlasting
 
 Last ned den nyeste `.dmg` fra [GitHub Releases](https://github.com/morapelker/hive/releases/latest).
 
-Det er det! Åpne Hive fra Programmer-mappen og pek den mot et git-repo.
+### Windows
+
+Last ned den nyeste `.exe` fra [GitHub Releases](https://github.com/morapelker/hive/releases/latest).
+
+### Linux
+
+Last ned den nyeste `.AppImage` eller `.deb` fra [GitHub Releases](https://github.com/morapelker/hive/releases/latest).
+
+---
+
+Det er det! Åpne Hive og pek den mot et git-repo.
 
 ## Hva er Hive?
 
@@ -79,9 +93,6 @@ Naviger og handle raskt med hurtigtaster. Trykk `Cmd+K` for å få tilgang til e
 
 ### 🎨 **Vakre temaer**
 Velg blant 10 nøye utformede temaer — 6 mørke og 4 lyse. Bytt øyeblikkelig for å matche preferansen din eller tiden på dagen. Følger systemtema automatisk om ønsket.
-
-### 🖥️ **Language Server Protocol**
-Full LSP-integrasjon med per-worktree språkservere. Få intelligent kodefullføring, gå-til-definisjon, hover-tooltips og sanntidsdiagnostikk for TypeScript, Python, Go, Rust og mer.
 
 ### 🔌 **Worktree-tilkoblinger**
 Koble to worktrees sammen for å dele kontekst, sammenligne implementeringer eller samarbeide i sanntid. Perfekt for å gjennomgå endringer mellom grener, dele AI-økter på tvers av worktrees, eller opprettholde konsistens når du jobber med relaterte funksjoner. Se live oppdateringer når tilkoblede worktrees endres.
@@ -218,7 +229,6 @@ Koble to vilkårlige worktrees for å:
 
 ### 🚀 Kommer snart
 
-- **Tverrplattformstøtte** — Windows og Linux builds
 - **Plugin-system** — Utvid Hive med tilpassede integrasjoner
 - **Skysynkronisering** — Synkroniser innstillinger, økter og tilkoblingsmaler på tvers av enheter
 - **Teamfunksjoner** — Del worktrees og samarbeid i sanntid

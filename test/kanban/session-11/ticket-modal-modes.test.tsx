@@ -49,6 +49,7 @@ const mockOpencodeOps = {
   connect: vi.fn().mockResolvedValue({ success: true, sessionId: 'opc-session-1' }),
   prompt: vi.fn().mockResolvedValue({ success: true }),
   reconnect: vi.fn().mockResolvedValue({ success: true }),
+  getMessages: vi.fn().mockResolvedValue({ success: true, messages: [] }),
   planApprove: vi.fn().mockResolvedValue({ success: true }),
   abort: vi.fn().mockResolvedValue({ success: true })
 }
@@ -100,6 +101,15 @@ const mockWorktreeOps = {
   })
 }
 
+const mockGitOps = {
+  listBranchesWithStatus: vi.fn().mockResolvedValue({ success: true, branches: [] }),
+  getBranchDiffFiles: vi.fn().mockResolvedValue({ success: true, files: [] }),
+  onStatusChanged: vi.fn().mockReturnValue(() => {}),
+  prMerge: vi.fn().mockResolvedValue({ success: true }),
+  listPRs: vi.fn().mockResolvedValue({ success: true, pullRequests: [] }),
+  getPRState: vi.fn().mockResolvedValue({ success: true, state: 'OPEN', title: 'Test PR' })
+}
+
 Object.defineProperty(window, 'kanban', {
   writable: true,
   configurable: true,
@@ -125,6 +135,12 @@ Object.defineProperty(window, 'worktreeOps', {
   writable: true,
   configurable: true,
   value: mockWorktreeOps
+})
+
+Object.defineProperty(window, 'gitOps', {
+  writable: true,
+  configurable: true,
+  value: mockGitOps
 })
 
 // ── Mock toast ──────────────────────────────────────────────────────
@@ -169,6 +185,7 @@ import { useWorktreeStore } from '@/stores/useWorktreeStore'
 import { useWorktreeStatusStore } from '@/stores/useWorktreeStatusStore'
 import { useProjectStore } from '@/stores/useProjectStore'
 import { useConnectionStore } from '@/stores/useConnectionStore'
+import { useGitStore } from '@/stores/useGitStore'
 
 // ── Import components under test ────────────────────────────────────
 import { KanbanTicketModal } from '@/components/kanban/KanbanTicketModal'
@@ -238,6 +255,7 @@ function makeWorktree(overrides: Record<string, unknown> = {}) {
     last_accessed_at: '2026-01-01T00:00:00Z',
     github_pr_number: null,
     github_pr_url: null,
+    base_branch: 'main',
     ...overrides
   }
 }
@@ -296,6 +314,15 @@ describe('Session 11: Kanban Ticket Modal Modes', () => {
       })
       useProjectStore.setState({
         projects: [makeProject()]
+      })
+      useGitStore.setState({
+        remoteInfo: new Map(),
+        attachedPR: new Map(),
+        creatingPRByWorktreeId: new Map(),
+        prTargetBranch: new Map(),
+        reviewTargetBranch: new Map(),
+        branchInfoByWorktree: new Map(),
+        fileStatusesByWorktree: new Map(),
       })
     })
     vi.clearAllMocks()
@@ -671,7 +698,66 @@ describe('Session 11: Kanban Ticket Modal Modes', () => {
       render(<KanbanTicketModal />)
 
       expect(screen.getByTestId('kanban-ticket-modal')).toBeInTheDocument()
-      expect(screen.getByTestId('review-content')).toBeInTheDocument()
+      expect(screen.getByTestId('review-followup-input')).toBeInTheDocument()
+    })
+
+    test('renders changed files summary in dual-pane review mode', async () => {
+      mockGitOps.getBranchDiffFiles.mockResolvedValueOnce({
+        success: true,
+        files: [
+          {
+            relativePath: 'src/auth/login.tsx',
+            status: 'M',
+            additions: 12,
+            deletions: 4,
+            binary: false
+          },
+          {
+            relativePath: 'assets/logo.png',
+            status: 'A',
+            additions: 0,
+            deletions: 0,
+            binary: true
+          }
+        ]
+      })
+
+      render(<KanbanTicketModal />)
+
+      expect(await screen.findByTestId('review-diff-summary')).toBeInTheDocument()
+      expect(screen.getByText('src/auth/login.tsx')).toBeInTheDocument()
+      expect(screen.getByText('+12')).toBeInTheDocument()
+      expect(screen.getByText('-4')).toBeInTheDocument()
+      expect(screen.getByText('assets/logo.png')).toBeInTheDocument()
+      expect(screen.getByText('binary')).toBeInTheDocument()
+    })
+
+    test('renders changed files error without blocking review mode', async () => {
+      mockGitOps.getBranchDiffFiles.mockResolvedValueOnce({
+        success: false,
+        error: 'Branch diff failed'
+      })
+
+      render(<KanbanTicketModal />)
+
+      expect(await screen.findByTestId('review-diff-summary-error')).toHaveTextContent('Branch diff failed')
+      expect(screen.getByTestId('review-followup-input')).toBeInTheDocument()
+    })
+
+    test('shows loading state instead of Create PR while PR creation is in progress', async () => {
+      act(() => {
+        useGitStore.setState({
+          remoteInfo: new Map([
+            ['wt-1', { hasRemote: true, isGitHub: true, url: 'git@github.com:test/repo.git' }]
+          ]),
+          creatingPRByWorktreeId: new Map([['wt-1', true]])
+        })
+      })
+
+      render(<KanbanTicketModal />)
+
+      expect(screen.getByRole('button', { name: 'Creating PR...' })).toBeDisabled()
+      expect(screen.queryByRole('button', { name: 'Create PR' })).not.toBeInTheDocument()
     })
 
     test('followup input has Build/Plan chip toggle', () => {
@@ -881,24 +967,71 @@ describe('Session 11: Kanban Ticket Modal Modes', () => {
       })
     })
 
-    test('sets isBoardViewActive to false', () => {
+    test('sets isBoardViewActive to false', async () => {
       render(<KanbanTicketModal />)
 
-      const jumpBtn = screen.getByTestId('jump-to-session-btn')
+      const jumpBtn = await screen.findByTestId('go-to-session-btn')
       fireEvent.click(jumpBtn)
 
       expect(useKanbanStore.getState().isBoardViewActive).toBe(false)
     })
 
-    test('selects correct worktree and session', () => {
+    test('selects correct worktree and session', async () => {
       render(<KanbanTicketModal />)
 
-      const jumpBtn = screen.getByTestId('jump-to-session-btn')
+      const jumpBtn = await screen.findByTestId('go-to-session-btn')
       fireEvent.click(jumpBtn)
 
       expect(useWorktreeStore.getState().selectedWorktreeId).toBe('wt-1')
       expect(useSessionStore.getState().activeWorktreeId).toBe('wt-1')
       expect(useSessionStore.getState().activeSessionId).toBe('session-jump')
+    })
+
+    test('shows go to session in the in-progress session header and closes the modal on click', async () => {
+      render(<KanbanTicketModal />)
+
+      const goToBtn = await screen.findByTestId('go-to-session-btn')
+      expect(goToBtn).toHaveTextContent('Go to session')
+      expect(screen.queryByTestId('jump-to-session-btn')).not.toBeInTheDocument()
+
+      fireEvent.click(goToBtn)
+
+      expect(useKanbanStore.getState().isBoardViewActive).toBe(false)
+      expect(useWorktreeStore.getState().selectedWorktreeId).toBe('wt-1')
+      expect(useSessionStore.getState().activeWorktreeId).toBe('wt-1')
+      expect(useSessionStore.getState().activeSessionId).toBe('session-jump')
+      expect(useKanbanStore.getState().selectedTicketId).toBeNull()
+      expect(screen.queryByTestId('kanban-ticket-modal')).not.toBeInTheDocument()
+    })
+
+    test('does not show go to session in review modal', async () => {
+      const reviewTicket = makeTicket({
+        id: 'ticket-review-go-to',
+        column: 'review',
+        current_session_id: 'session-review-go-to',
+        worktree_id: 'wt-1',
+        mode: 'build'
+      })
+
+      act(() => {
+        useKanbanStore.setState({
+          tickets: new Map([['proj-1', [reviewTicket]]]),
+          selectedTicketId: 'ticket-review-go-to',
+          isBoardViewActive: true
+        })
+        useSessionStore.setState({
+          sessionsByWorktree: new Map([
+            ['wt-1', [makeSession({ id: 'session-review-go-to', status: 'completed' })]]
+          ])
+        })
+      })
+
+      render(<KanbanTicketModal />)
+
+      expect(screen.getByTestId('jump-to-session-btn')).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.queryByTestId('go-to-session-btn')).not.toBeInTheDocument()
+      })
     })
   })
 
@@ -1268,11 +1401,9 @@ describe('Session 11: Kanban Ticket Modal Modes', () => {
         useWorktreeStore.setState({ worktreesByProject: new Map() })
       })
 
-      // DB fallback returns the worktree path — chain two mockResolvedValueOnce
-      // because the component's dbWorktreePath effect also calls get() on mount
-      mockDbWorktree.get
-        .mockResolvedValueOnce({ path: '/test/orphan-worktree' })  // consumed by Bug 4 useEffect on mount
-        .mockResolvedValueOnce({ path: '/test/orphan-worktree' })  // consumed by sendFollowupToSession → findSessionById
+      // Multiple code paths may consult the DB worktree record while the
+      // modal resolves review state and then sends the followup.
+      mockDbWorktree.get.mockResolvedValue({ path: '/test/orphan-worktree', base_branch: 'main' })
 
       render(<KanbanTicketModal />)
 
@@ -1315,7 +1446,7 @@ describe('Session 11: Kanban Ticket Modal Modes', () => {
       })
 
       // DB also returns null — worktree truly gone
-      mockDbWorktree.get.mockResolvedValueOnce(null)
+      mockDbWorktree.get.mockResolvedValue(null)
 
       render(<KanbanTicketModal />)
 

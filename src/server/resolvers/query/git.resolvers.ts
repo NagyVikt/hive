@@ -181,9 +181,40 @@ export const gitQueryResolvers: Resolvers = {
         }
         const files = (result.files ?? []).map((f) => ({
           path: f.relativePath,
-          status: f.status
+          status: f.status,
+          additions: f.additions,
+          deletions: f.deletions,
+          binary: f.binary
         }))
         return { success: true, files }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }
+    },
+
+    gitBranchBaseContent: async (_parent, { worktreePath, branch, filePath }, _ctx) => {
+      try {
+        const gitService = createGitService(worktreePath)
+        return await gitService.getBranchBaseContent(branch, filePath)
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }
+      }
+    },
+
+    gitBranchBaseContentBase64: async (_parent, { worktreePath, branch, filePath }, _ctx) => {
+      try {
+        const gitService = createGitService(worktreePath)
+        const result = await gitService.getBranchBaseContentBase64(branch, filePath)
+        if (!result.success) {
+          return { success: false, error: result.error }
+        }
+        return { success: true, content: result.data, mimeType: result.mimeType }
       } catch (error) {
         return {
           success: false,

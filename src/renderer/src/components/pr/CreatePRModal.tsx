@@ -23,6 +23,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from '@/lib/toast'
+import { resolvePRContentProvider } from '@/lib/pr-content-provider'
 import { useGitStore, type GitFileStatus } from '@/stores/useGitStore'
 import { usePRNotificationStore } from '@/stores/usePRNotificationStore'
 import { useSettingsStore } from '@/stores/useSettingsStore'
@@ -56,12 +57,14 @@ export function CreatePRModal({
     worktreeId ? s.prTargetBranch.get(worktreeId) : undefined
   )
   const attachPR = useGitStore((s) => s.attachPR)
+  const setCreatingPR = useGitStore((s) => s.setCreatingPR)
   const fileStatusesByWorktree = useGitStore((s) => s.fileStatusesByWorktree)
   const isCommitting = useGitStore((s) => s.isCommitting)
   const loadFileStatuses = useGitStore((s) => s.loadFileStatuses)
   const stageAll = useGitStore((s) => s.stageAll)
   const gitCommit = useGitStore((s) => s.commit)
   const defaultAgentSdk = useSettingsStore((s) => s.defaultAgentSdk) ?? 'claude-code'
+  const availableAgentSdks = useSettingsStore((s) => s.availableAgentSdks)
 
   // ── Session titles for commit message pre-fill ──────────────────
   const worktreesByProject = useWorktreeStore((s) => s.worktreesByProject)
@@ -232,11 +235,19 @@ export function CreatePRModal({
           ? `Commit: ${result.commitHash.slice(0, 7)}`
           : undefined
       })
+      // Refresh commit count and branch info after committing
+      if (baseBranch) {
+        window.gitOps
+          .getRangeDiff(worktreePath, baseBranch)
+          .then((rd) => setCommitCount(rd.commitCount))
+          .catch(() => {})
+      }
+      useGitStore.getState().loadBranchInfo(worktreePath)
       setPhase('form')
     } else {
       setCommitError(result.error ?? 'Commit failed')
     }
-  }, [worktreePath, commitSummary, commitDescription, gitCommit])
+  }, [worktreePath, commitSummary, commitDescription, gitCommit, baseBranch])
 
   const handleSkipCommit = useCallback(() => {
     setPhase('form')
@@ -251,15 +262,17 @@ export function CreatePRModal({
     const prTitle = title.trim()
     const prBody = body.trim()
     const branchName = branchInfo?.name ?? 'Pull Request'
-    const provider = defaultAgentSdk
+    const provider = resolvePRContentProvider(defaultAgentSdk, availableAgentSdks)
 
     // Close modal — PR creation continues in background via notification
     setOpen(false)
+    setCreatingPR(worktreeId, true)
 
     const { show, update } = usePRNotificationStore.getState()
     const notifId = show({
       status: 'loading',
-      message: 'Creating pull request...'
+      message: 'Creating pull request...',
+      worktreeId
     })
 
     let finalTitle = prTitle
@@ -282,21 +295,39 @@ export function CreatePRModal({
         }
       }
 
-      // Step 2: Generate content if needed
+      // Step 2: Generate content if needed (best-effort — failure should not block PR creation)
       const needsGenerate = !finalTitle || !finalBody
+      let usedFallbackContent = false
+      let generationFailureReason: string | null = null
       if (needsGenerate) {
         update(notifId, { message: 'Generating PR content...' })
-        const genResult = await window.gitOps.generatePRContent(
-          worktreePath,
-          targetBase,
-          provider
-        )
-        if (!genResult.success) {
-          throw new Error(genResult.error ?? 'Content generation failed')
+        if (!provider) {
+          usedFallbackContent = true
+          generationFailureReason =
+            'No AI provider available for PR content generation. Using default title and description.'
+        } else {
+          try {
+            const genResult = await window.gitOps.generatePRContent(
+              worktreePath,
+              targetBase,
+              provider
+            )
+            if (genResult.success) {
+              if (!finalTitle && genResult.title) finalTitle = genResult.title
+              if (!finalBody && genResult.body) finalBody = genResult.body
+            } else {
+              console.warn('PR content generation failed, using fallback:', genResult.error)
+              generationFailureReason =
+                genResult.error ?? 'AI content generation failed — you may want to edit the title and description'
+              usedFallbackContent = true
+            }
+          } catch (err) {
+            console.warn('PR content generation threw, using fallback:', err)
+            generationFailureReason = err instanceof Error ? err.message : String(err)
+            usedFallbackContent = true
+          }
         }
-        if (!finalTitle && genResult.title) finalTitle = genResult.title
-        if (!finalBody && genResult.body) finalBody = genResult.body
-        // Fallback if generation returned empty
+        // Fallback if generation failed or returned empty
         if (!finalTitle) finalTitle = branchName
         if (!finalBody) finalBody = ''
       }
@@ -311,33 +342,44 @@ export function CreatePRModal({
       )
 
       if (!createResult.success) {
-        // Check for "already exists" pattern
-        const errMsg = createResult.error ?? 'PR creation failed'
-        const alreadyExistsMatch = errMsg.match(
-          /already exists.*?(\d+)|pull request.*?#(\d+).*?already/i
-        )
-        if (alreadyExistsMatch) {
-          const existingNumber = parseInt(alreadyExistsMatch[1] || alreadyExistsMatch[2], 10)
-          if (existingNumber) {
-            const urlMatch = errMsg.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/)
-            const existingUrl =
-              urlMatch?.[0] ?? `https://github.com/unknown/pull/${existingNumber}`
+        // The backend populates url/number even on failure when a PR already
+        // exists — use that structured data first, regex fallback second.
+        let existingNumber = createResult.number
+        let existingUrl = createResult.url
 
-            // Auto-attach the existing PR
-            await attachPR(worktreeId, existingNumber, existingUrl)
-
-            update(notifId, {
-              status: 'info',
-              message: `PR #${existingNumber} already exists`,
-              description: 'Attached to workspace',
-              prUrl: existingUrl,
-              prNumber: existingNumber
-            })
-            return
+        if (!existingNumber) {
+          // Fallback: parse the error message ([\s\S] to match across newlines)
+          const errMsg = createResult.error ?? ''
+          const alreadyExistsMatch = errMsg.match(
+            /already exists[\s\S]*?\/pull\/(\d+)|pull request.*?#(\d+).*?already/i
+          )
+          if (alreadyExistsMatch) {
+            existingNumber = parseInt(alreadyExistsMatch[1] || alreadyExistsMatch[2], 10)
+            if (!existingUrl) {
+              const urlMatch = errMsg.match(/https:\/\/github\.com\/[^\s]+\/pull\/\d+/)
+              existingUrl = urlMatch?.[0] ?? `https://github.com/unknown/pull/${existingNumber}`
+            }
           }
         }
 
-        throw new Error(errMsg)
+        if (existingNumber) {
+          existingUrl = existingUrl ?? `https://github.com/unknown/pull/${existingNumber}`
+
+          // Auto-attach the existing PR
+          await attachPR(worktreeId, existingNumber, existingUrl)
+
+          update(notifId, {
+            status: 'info',
+            message: `PR #${existingNumber} already exists`,
+            description: 'Attached to workspace',
+            prUrl: existingUrl,
+            prNumber: existingNumber,
+            worktreeId
+          })
+          return
+        }
+
+        throw new Error(createResult.error ?? 'PR creation failed')
       }
 
       // Attach the new PR
@@ -346,10 +388,17 @@ export function CreatePRModal({
       await attachPR(worktreeId, prNumber, prUrl)
 
       update(notifId, {
-        status: 'success',
-        message: `Pull request #${prNumber} created`,
+        status: usedFallbackContent ? 'warning' : 'success',
+        message: usedFallbackContent
+          ? `PR #${prNumber} created with default content`
+          : `Pull request #${prNumber} created`,
+        description: usedFallbackContent
+          ? generationFailureReason ??
+            'AI content generation failed — you may want to edit the title and description'
+          : undefined,
         prUrl,
-        prNumber
+        prNumber,
+        worktreeId
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -358,6 +407,8 @@ export function CreatePRModal({
         message: 'Failed to create pull request',
         description: msg
       })
+    } finally {
+      setCreatingPR(worktreeId, false)
     }
   }, [
     worktreePath,
@@ -366,9 +417,11 @@ export function CreatePRModal({
     title,
     body,
     defaultAgentSdk,
+    availableAgentSdks,
     branchInfo,
     attachPR,
-    setOpen
+    setOpen,
+    setCreatingPR
   ])
 
   // ── Cancel handler ──────────────────────────────────────────────
@@ -496,7 +549,7 @@ export function CreatePRModal({
       {/* Source branch (read-only) */}
       <div className="space-y-1.5">
         <label className="text-sm font-medium text-foreground">Source branch</label>
-        <div className="flex items-center gap-2 px-3 py-2 text-sm border rounded-md bg-muted/50">
+        <div className="flex items-center gap-2 px-3 py-2 text-sm border rounded-md bg-muted/50 min-w-0">
           <GitBranch className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
           <span className="truncate">{branchInfo?.name ?? 'Unknown'}</span>
           {commitCount !== null && (
@@ -520,7 +573,7 @@ export function CreatePRModal({
                 'bg-background hover:bg-accent/50 transition-colors text-left'
               )}
             >
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-2 min-w-0">
                 <GitBranch className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <span className="truncate">{baseBranch || 'Select base branch...'}</span>
               </span>
@@ -639,7 +692,7 @@ export function CreatePRModal({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
             <span className="flex items-center gap-2">
