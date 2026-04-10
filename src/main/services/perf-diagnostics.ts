@@ -1,6 +1,7 @@
-import { app } from 'electron'
+import { app, BrowserWindow, webContents } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, appendFileSync, statSync, renameSync } from 'fs'
+import * as v8 from 'v8'
 import { createLogger } from './logger'
 
 const log = createLogger({ component: 'PerfDiagnostics' })
@@ -32,6 +33,13 @@ export interface PerfSnapshot {
     heapTotal: number
     external: number
     arrayBuffers: number
+    nativeEstimate: number // RSS - heapTotal - external (C++ addons, mmap, shared libs)
+  }
+  heap: {
+    sizeLimit: number // V8 max heap size
+    totalPhysical: number // physically committed heap
+    mallocedMemory: number // memory allocated via malloc
+    numberOfGcContexts: number // active GC contexts — growth indicates leaking contexts
   }
   processes: {
     ptyActive: number
@@ -50,6 +58,12 @@ export interface PerfSnapshot {
   handles: {
     active: number
     requests: number
+    // Breakdown by constructor name (e.g. Timer, Socket, TCP, Pipe, FSWatcher, ChildProcess)
+    byType: Record<string, number>
+  }
+  electron: {
+    windows: number
+    webContents: number
   }
   eventLoopLagMs: number
 }
@@ -148,11 +162,35 @@ class PerfDiagnosticsService {
     // Event loop lag measurement is async; use last measured value
     const eventLoopLag = this.measureEventLoopLagSync()
 
-    // Active handles/requests (Node.js internals)
-    const activeHandles = (process as NodeJS.Process & { _getActiveHandles?: () => unknown[] })
-      ._getActiveHandles?.()?.length ?? -1
+    // Active handles/requests (Node.js private APIs — fallback to -1 if unavailable)
+    const rawHandles = (process as NodeJS.Process & { _getActiveHandles?: () => unknown[] })
+      ._getActiveHandles?.() ?? []
+    const activeHandles = rawHandles.length
     const activeRequests = (process as NodeJS.Process & { _getActiveRequests?: () => unknown[] })
       ._getActiveRequests?.()?.length ?? -1
+
+    // Handle type breakdown — group by constructor name
+    const handlesByType: Record<string, number> = {}
+    for (const handle of rawHandles) {
+      const name = handle?.constructor?.name ?? 'Unknown'
+      handlesByType[name] = (handlesByType[name] ?? 0) + 1
+    }
+
+    // V8 heap statistics
+    const heapStats = v8.getHeapStatistics()
+
+    // Native memory estimate: everything in RSS that isn't V8 heap or external
+    const nativeEstimate = Math.max(0, mem.rss - mem.heapTotal - mem.external)
+
+    // Electron process counts
+    let windowCount = -1
+    let webContentsCount = -1
+    try {
+      windowCount = BrowserWindow.getAllWindows().length
+      webContentsCount = webContents.getAllWebContents().length
+    } catch {
+      // May fail during shutdown
+    }
 
     return {
       timestamp: new Date(now).toISOString(),
@@ -167,7 +205,14 @@ class PerfDiagnosticsService {
         heapUsed: mem.heapUsed,
         heapTotal: mem.heapTotal,
         external: mem.external,
-        arrayBuffers: mem.arrayBuffers
+        arrayBuffers: mem.arrayBuffers,
+        nativeEstimate
+      },
+      heap: {
+        sizeLimit: heapStats.heap_size_limit,
+        totalPhysical: heapStats.total_physical_size,
+        mallocedMemory: heapStats.malloced_memory,
+        numberOfGcContexts: heapStats.number_of_native_contexts
       },
       processes: {
         ptyActive: collectors?.getPtyCount() ?? -1,
@@ -185,7 +230,12 @@ class PerfDiagnosticsService {
       },
       handles: {
         active: activeHandles,
-        requests: activeRequests
+        requests: activeRequests,
+        byType: handlesByType
+      },
+      electron: {
+        windows: windowCount,
+        webContents: webContentsCount
       },
       eventLoopLagMs: eventLoopLag
     }
