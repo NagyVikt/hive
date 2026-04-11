@@ -199,11 +199,7 @@ export async function watchWorktree(worktreePath: string): Promise<void> {
     ignored: WORKTREE_IGNORE_PATTERNS,
     persistent: true,
     ignoreInitial: true,
-    depth: 10,
-    awaitWriteFinish: {
-      stabilityThreshold: 200,
-      pollInterval: 50
-    }
+    depth: 10
   })
 
   const entry: WatcherEntry = {

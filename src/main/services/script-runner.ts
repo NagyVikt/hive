@@ -489,6 +489,7 @@ export class ScriptRunner {
     if (proc.exitCode !== null || proc.signalCode !== null) {
       this.flushOutputBuffer(eventKey)
       this.clearCurrentProcess(eventKey, proc)
+      this.totalClosed++
       return true
     }
 
@@ -509,6 +510,7 @@ export class ScriptRunner {
       this.flushOutputBuffer(eventKey)
       this.runningProcesses.delete(eventKey)
       this.clearBufferedOutput(eventKey)
+      this.totalClosed++
     }
 
     return true
@@ -524,12 +526,14 @@ export class ScriptRunner {
 
   killAll(): void {
     log.info('killAll: cleaning up all running processes', { count: this.runningProcesses.size })
+    const count = this.runningProcesses.size
     for (const [key, proc] of this.runningProcesses) {
       log.info('killAll: killing process', { key, pid: proc.pid })
       this.signalProcessTree(proc, 'SIGTERM', key)
       this.clearBufferedOutput(key)
     }
     this.runningProcesses.clear()
+    this.totalClosed += count
   }
 }
 
