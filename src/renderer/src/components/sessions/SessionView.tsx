@@ -28,6 +28,7 @@ import type { FlatFile } from '@/lib/file-search-utils'
 import { useSessionStore } from '@/stores/useSessionStore'
 import { useWorktreeStatusStore } from '@/stores/useWorktreeStatusStore'
 import { useContextStore } from '@/stores/useContextStore'
+import { maybeExtractJsonTitle } from '@shared/title-utils'
 import type { TokenInfo, SessionModelRef } from '@/stores/useContextStore'
 import {
   extractTokens,
@@ -1603,7 +1604,8 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
           // Handle session.updated events — update session title in store
           // The SDK event structure is: { data: { info: { title, ... } } }
           if (event.type === 'session.updated') {
-            const sessionTitle = event.data?.info?.title || event.data?.title
+            const rawTitle = event.data?.info?.title || event.data?.title
+            const sessionTitle = rawTitle ? maybeExtractJsonTitle(rawTitle) : rawTitle
             console.log('[TITLE_DEBUG] SessionView received session.updated', {
               eventSessionId: event.sessionId,
               componentSessionId: sessionId,
@@ -4023,6 +4025,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
     useSessionStore.getState().clearPendingPlan(sessionId)
     useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+    lastSendMode.delete(sessionId)
 
     // Abort the original backend session so it stops spinning
     if (worktreePath && opencodeSessionId) {
@@ -4082,6 +4085,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
     useSessionStore.getState().clearPendingPlan(sessionId)
     useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+    lastSendMode.delete(sessionId)
 
     // Abort the original backend session so it stops spinning
     if (worktreePath && opencodeSessionId) {
@@ -4183,6 +4187,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
     useSessionStore.getState().clearPendingPlan(sessionId)
     useWorktreeStatusStore.getState().clearSessionStatus(sessionId)
+    lastSendMode.delete(sessionId)
 
     // Abort the original backend session so it stops spinning
     if (worktreePath && opencodeSessionId) {
