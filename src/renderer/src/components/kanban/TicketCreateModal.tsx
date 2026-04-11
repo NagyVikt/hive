@@ -40,6 +40,7 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId,
   const [selectedProjectId, setSelectedProjectId] = useState('')
 
   const titleInputRef = useRef<HTMLInputElement>(null)
+  const createdSuccessfully = useRef(false)
   const createTicket = useKanbanStore((state) => state.createTicket)
 
   const isConnectionMode = !!connectionId
@@ -91,7 +92,24 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId,
     return () => window.removeEventListener('keydown', handler, true)
   }, [open])
 
-  // Reset form when modal opens/closes
+  // Clean up orphaned image files when modal closes without successful creation
+  useEffect(() => {
+    if (open) {
+      createdSuccessfully.current = false
+    } else {
+      // Modal just closed — if creation didn't succeed, delete any saved images
+      if (!createdSuccessfully.current) {
+        for (const att of attachments) {
+          if (att.type === 'image' && att.url) {
+            window.attachmentOps.deleteImage(att.url).catch(() => {})
+          }
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only react to open/close transitions
+  }, [open])
+
+  // Reset form when modal opens
   useEffect(() => {
     if (open) {
       setTitle('')
@@ -128,6 +146,7 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId,
         attachments: attachments.map((a) => ({ type: a.type, url: a.url, label: a.label })),
         column: 'todo'
       })
+      createdSuccessfully.current = true
       toast.success('Ticket created')
       onOpenChange(false)
     } catch {
