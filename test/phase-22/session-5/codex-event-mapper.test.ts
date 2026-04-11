@@ -905,4 +905,99 @@ describe('mapCodexEventToStreamEvents', () => {
 
     expect((result[0].data as any).part.state.input).toEqual({ command: '/bin/zsh -lc pnpm test' })
   })
+
+  // ── Expanded tool types (Phase 3) ───────────────────────────
+
+  describe('expanded tool type coverage', () => {
+    it('item.started with type fileRead returns a tool event', () => {
+      const event = makeEvent({
+        method: 'item.started',
+        payload: {
+          item: { id: 'item-fr-1', toolName: 'Read', type: 'fileRead' }
+        }
+      })
+
+      const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
+
+      expect(result).toHaveLength(1)
+      expect(result[0].type).toBe('message.part.updated')
+      const part = (result[0].data as any).part
+      expect(part.type).toBe('tool')
+      expect(part.callID).toBe('item-fr-1')
+      expect(part.state.status).toBe('running')
+    })
+
+    it('item.started with type mcpToolCall returns a tool event', () => {
+      const event = makeEvent({
+        method: 'item.started',
+        payload: {
+          item: { id: 'item-mcp-1', toolName: 'MCP', type: 'mcpToolCall' }
+        }
+      })
+
+      const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
+
+      expect(result).toHaveLength(1)
+      expect(result[0].type).toBe('message.part.updated')
+      const part = (result[0].data as any).part
+      expect(part.type).toBe('tool')
+      expect(part.callID).toBe('item-mcp-1')
+      expect(part.state.status).toBe('running')
+    })
+
+    it('item.started with type dynamicToolCall returns a tool event', () => {
+      const event = makeEvent({
+        method: 'item.started',
+        payload: {
+          item: { id: 'item-dtc-1', toolName: 'Tool', type: 'dynamicToolCall' }
+        }
+      })
+
+      const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
+
+      expect(result).toHaveLength(1)
+      expect(result[0].type).toBe('message.part.updated')
+      const part = (result[0].data as any).part
+      expect(part.type).toBe('tool')
+      expect(part.callID).toBe('item-dtc-1')
+      expect(part.state.status).toBe('running')
+    })
+  })
+
+  // ── Terminal interaction handler ─────────────────────────────
+
+  describe('item/commandExecution/terminalInteraction', () => {
+    it('maps terminalInteraction to tool update with status running', () => {
+      const event = makeEvent({
+        method: 'item/commandExecution/terminalInteraction',
+        payload: {
+          item: { id: 'item-ti-1', toolName: 'Bash', type: 'commandExecution' }
+        }
+      })
+
+      const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
+
+      expect(result).toHaveLength(1)
+      expect(result[0].type).toBe('message.part.updated')
+      expect(result[0].sessionId).toBe(HIVE_SESSION)
+      const part = (result[0].data as any).part
+      expect(part.type).toBe('tool')
+      expect(part.callID).toBe('item-ti-1')
+      expect(part.state.status).toBe('running')
+    })
+
+    it('returns empty array when callId cannot be determined', () => {
+      const event = makeEvent({
+        method: 'item/commandExecution/terminalInteraction',
+        // no itemId, no item.id in payload
+        payload: {
+          item: { type: 'commandExecution' }
+        }
+      })
+
+      const result = mapCodexEventToStreamEvents(event, HIVE_SESSION)
+
+      expect(result).toHaveLength(0)
+    })
+  })
 })

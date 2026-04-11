@@ -218,8 +218,19 @@ function extractItemInfo(event: CodexManagerEvent): ItemInfo {
   }
 }
 
+const TOOL_LIFECYCLE_ITEM_TYPES = new Set([
+  'commandexecution',
+  'filechange',
+  'fileread',
+  'dynamictoolcall',
+  'collababenttoolcall',
+  'mcptoolcall',
+  'websearch'
+])
+
 function isToolLifecycleItem(item: ItemInfo): boolean {
-  return item.itemType === 'commandExecution' || item.itemType === 'fileChange'
+  if (!item.itemType) return false
+  return TOOL_LIFECYCLE_ITEM_TYPES.has(item.itemType.toLowerCase())
 }
 
 // ── Task payload extraction ───────────────────────────────────────
@@ -583,6 +594,30 @@ export function mapCodexEventToStreamEvents(
         type: 'session.updated',
         sessionId: hiveSessionId,
         data: { title, info: { title } }
+      }
+    ]
+  }
+
+  // ── Terminal interaction (treat as item update) ──────────────
+  if (method === 'item/commandExecution/terminalInteraction') {
+    const item = extractItemInfo(event)
+    if (!item.callId) return []
+
+    return [
+      {
+        type: 'message.part.updated',
+        sessionId: hiveSessionId,
+        data: annotateData({
+          part: {
+            type: 'tool',
+            callID: item.callId,
+            tool: item.toolName,
+            state: {
+              status: 'running',
+              ...(item.input !== undefined ? { input: item.input } : {})
+            }
+          }
+        })
       }
     ]
   }
