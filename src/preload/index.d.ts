@@ -551,8 +551,6 @@ declare global {
       }) => Promise<void>
       onMenuAction: (channel: string, callback: () => void) => () => void
       isPackaged: () => Promise<boolean>
-      installServerToPath: () => Promise<{ success: boolean; path?: string; error?: string }>
-      uninstallServerFromPath: () => Promise<{ success: boolean; error?: string }>
       getPlatform: () => Promise<string>
     }
     loggingOps: {
@@ -780,11 +778,6 @@ declare global {
       }>
       writeFile: (filePath: string, content: string) => Promise<{
         success: boolean
-        error?: string
-      }>
-      readPrompt: (promptName: string) => Promise<{
-        success: boolean
-        content?: string
         error?: string
       }>
       readImageAsBase64: (filePath: string) => Promise<{

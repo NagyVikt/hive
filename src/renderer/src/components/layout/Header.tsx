@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
 import { isMac } from '@/lib/platform'
-import { useIsWebMode } from '@/hooks/useIsWebMode'
-import { getWebAuth } from '@/transport/graphql/auth'
 import {
   PanelRightClose,
   PanelRightOpen,
@@ -18,7 +16,8 @@ import {
   ExternalLink,
   Copy,
   Hammer,
-  Map
+  Map,
+  Check
 } from 'lucide-react'
 import { KanbanIcon } from '@/components/kanban/KanbanIcon'
 import { Button } from '@/components/ui/button'
@@ -40,6 +39,7 @@ import { cn } from '@/lib/utils'
 import { useLayoutStore } from '@/stores/useLayoutStore'
 import { useSessionHistoryStore } from '@/stores/useSessionHistoryStore'
 import { useSettingsStore } from '@/stores/useSettingsStore'
+import { REVIEW_PROMPT_LABELS, type ReviewPromptType } from '@/constants/reviewPrompts'
 import { useProjectStore } from '@/stores/useProjectStore'
 import { useWorktreeStore } from '@/stores/useWorktreeStore'
 import { useConnectionStore } from '@/stores/useConnectionStore'
@@ -82,17 +82,6 @@ function isConflictFixActiveStatus(status: string | null): boolean {
 }
 
 export function Header(): React.JSX.Element {
-  const isWebMode = useIsWebMode()
-  const webServerUrl = useMemo(() => {
-    if (!isWebMode) return null
-    const auth = getWebAuth()
-    if (!auth) return null
-    try {
-      return new URL(auth.serverUrl).host
-    } catch {
-      return auth.serverUrl
-    }
-  }, [isWebMode])
   const { rightSidebarCollapsed, toggleRightSidebar } = useLayoutStore()
   const { openPanel: openSessionHistory } = useSessionHistoryStore()
   const openSettings = useSettingsStore((s) => s.openSettings)
@@ -120,6 +109,8 @@ export function Header(): React.JSX.Element {
   const vimModeEnabled = useSettingsStore((s) => s.vimModeEnabled)
   const mergeConflictMode = useSettingsStore((s) => s.mergeConflictMode)
   const boardMode = useSettingsStore((s) => s.boardMode)
+  const currentReviewPromptType = useSettingsStore((s) => s.reviewPromptType)
+  const updateSetting = useSettingsStore((s) => s.updateSetting)
   const showVimHints = vimModeEnabled && vimMode === 'normal'
   const isBoardViewActive = useKanbanStore((s) => s.isBoardViewActive)
   const toggleBoardView = useKanbanStore((s) => s.toggleBoardView)
@@ -326,14 +317,6 @@ export function Header(): React.JSX.Element {
         ) : (
           <span className="text-sm font-medium">Hive</span>
         )}
-        {isWebMode && webServerUrl && (
-          <span
-            className="text-[10px] font-mono px-1.5 py-0.5 rounded border select-none text-emerald-500 bg-emerald-500/10 border-emerald-500/30"
-            data-testid="web-connection-indicator"
-          >
-            Connected to {webServerUrl}
-          </span>
-        )}
         {vimModeEnabled && (
           <span
             className={cn(
@@ -471,28 +454,63 @@ export function Header(): React.JSX.Element {
           )}
         {!isConnectionMode && selectedWorktree && (
           <>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs"
-              onClick={() => pinAndActivate(() => lifecycle.createCodeReview())}
-              disabled={isOperating || lifecycleLoading}
-              title="Review branch changes with AI"
-              data-testid="review-button"
-            >
-              {lifecycleLoading ? (
-                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-              ) : (
-                <FileSearch className="h-3.5 w-3.5 mr-1" />
-              )}
-              {showVimHints ? (
-                <span>
-                  <span className="text-primary font-bold">R</span>eview
-                </span>
-              ) : (
-                'Review'
-              )}
-            </Button>
+            <div className="flex items-center">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs rounded-r-none border-r-0"
+                onClick={() => pinAndActivate(() => lifecycle.createCodeReview())}
+                disabled={isOperating || lifecycleLoading}
+                title="Review branch changes with AI"
+                data-testid="review-button"
+              >
+                {lifecycleLoading ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                ) : (
+                  <FileSearch className="h-3.5 w-3.5 mr-1" />
+                )}
+                {showVimHints ? (
+                  <span>
+                    <span className="text-primary font-bold">R</span>eview
+                  </span>
+                ) : (
+                  'Review'
+                )}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-1 rounded-l-none"
+                    disabled={isOperating || lifecycleLoading}
+                    data-testid="review-prompt-type-trigger"
+                  >
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {(Object.keys(REVIEW_PROMPT_LABELS) as ReviewPromptType[]).map((type) => (
+                    <DropdownMenuItem
+                      key={type}
+                      onClick={() => {
+                        updateSetting('reviewPromptType', type)
+                        pinAndActivate(() => lifecycle.createCodeReview())
+                      }}
+                      data-testid={`review-prompt-${type}`}
+                    >
+                      {currentReviewPromptType === type && (
+                        <Check className="h-3.5 w-3.5 mr-2" />
+                      )}
+                      {currentReviewPromptType !== type && (
+                        <span className="w-3.5 mr-2" />
+                      )}
+                      {REVIEW_PROMPT_LABELS[type]}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
