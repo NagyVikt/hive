@@ -20,6 +20,12 @@ import type { ThreadReadParams } from '@shared/codex-schemas/v2/ThreadReadParams
 import type { ThreadRollbackParams } from '@shared/codex-schemas/v2/ThreadRollbackParams'
 import type { SandboxMode } from '@shared/codex-schemas/v2/SandboxMode'
 import type { AskForApproval } from '@shared/codex-schemas/v2/AskForApproval'
+import type { TurnStartedNotification } from '@shared/codex-schemas/v2/TurnStartedNotification'
+import type { TurnCompletedNotification } from '@shared/codex-schemas/v2/TurnCompletedNotification'
+import type { CommandExecutionRequestApprovalParams } from '@shared/codex-schemas/v2/CommandExecutionRequestApprovalParams'
+import type { FileChangeRequestApprovalParams } from '@shared/codex-schemas/v2/FileChangeRequestApprovalParams'
+import type { ToolRequestUserInputParams } from '@shared/codex-schemas/v2/ToolRequestUserInputParams'
+import type { ToolRequestUserInputAnswer } from '@shared/codex-schemas/v2/ToolRequestUserInputAnswer'
 
 const log = createLogger({ component: 'CodexAppServerManager' })
 
@@ -326,14 +332,7 @@ export function killChildTree(child: ChildProcess): void {
 }
 
 // ── User input answer format ──────────────────────────────────────
-
-export interface CodexUserInputAnswer {
-  answers: string[]
-}
-
-export function toCodexUserInputAnswer(value: string): CodexUserInputAnswer {
-  return { answers: [value] }
-}
+// Uses generated ToolRequestUserInputAnswer from codex-schemas
 
 // ── Approval decision mapping ────────────────────────────────────
 
@@ -713,10 +712,10 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
     }
 
     // Convert answers array into a map keyed by question id,
-    // wrapping each value in the Codex { answers: string[] } format
-    const answersMap: Record<string, CodexUserInputAnswer> = {}
+    // wrapping each value in the generated ToolRequestUserInputAnswer format
+    const answersMap: Record<string, ToolRequestUserInputAnswer> = {}
     for (const { id, answer } of answers) {
-      answersMap[id] = toCodexUserInputAnswer(answer)
+      answersMap[id] = { answers: [answer] }
     }
 
     this.writeMessage(context, {
@@ -1003,8 +1002,8 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
 
     // Handle session lifecycle notifications
     if (notification.method === 'turn/started') {
-      const turnObj = asObject(asObject(notification.params)?.turn)
-      const turnId = asString(turnObj?.id)
+      const params = notification.params as TurnStartedNotification
+      const turnId = params.turn.id
       this.updateSession(context, {
         status: 'running',
         activeTurnId: turnId ?? null
@@ -1013,8 +1012,8 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
     }
 
     if (notification.method === 'turn/completed') {
-      const turnObj = asObject(asObject(notification.params)?.turn)
-      const status = asString(turnObj?.status)
+      const params = notification.params as TurnCompletedNotification
+      const status = params.turn.status
       this.updateSession(context, {
         status: status === 'failed' ? 'error' : 'ready',
         activeTurnId: null
@@ -1024,7 +1023,6 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
   }
 
   private handleServerRequest(context: CodexSessionContext, request: JsonRpcRequest): void {
-    const route = this.readRouteFields(request.params)
     const requestId = randomUUID()
 
     // Track approval requests
@@ -1033,27 +1031,35 @@ export class CodexAppServerManager extends EventEmitter<CodexAppServerManagerEve
       request.method === 'item/fileChange/requestApproval' ||
       request.method === 'item/fileRead/requestApproval'
     ) {
+      const params = request.params as
+        | CommandExecutionRequestApprovalParams
+        | FileChangeRequestApprovalParams
+
       context.pendingApprovals.set(requestId, {
         requestId,
         jsonRpcId: request.id,
         method: request.method,
         threadId: context.session.threadId ?? '',
         payload: request.params,
-        ...(route.turnId ? { turnId: route.turnId } : {}),
-        ...(route.itemId ? { itemId: route.itemId } : {})
+        ...('turnId' in params ? { turnId: params.turnId } : {}),
+        ...('itemId' in params ? { itemId: params.itemId } : {})
       })
     }
 
     // Track user input requests
     if (request.method === 'item/tool/requestUserInput') {
+      const params = request.params as ToolRequestUserInputParams
+
       context.pendingUserInputs.set(requestId, {
         requestId,
         jsonRpcId: request.id,
         threadId: context.session.threadId ?? '',
-        ...(route.turnId ? { turnId: route.turnId } : {}),
-        ...(route.itemId ? { itemId: route.itemId } : {})
+        turnId: params.turnId,
+        itemId: params.itemId
       })
     }
+
+    const route = this.readRouteFields(request.params)
 
     this.emitEvent({
       id: randomUUID(),
