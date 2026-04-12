@@ -5,6 +5,8 @@ import { useSessionStore } from '@/stores/useSessionStore'
 import { useProjectStore } from '@/stores/useProjectStore'
 import { useWorktreeStatusStore } from '@/stores/useWorktreeStatusStore'
 import { toast } from '@/lib/toast'
+import { REVIEW_PROMPTS, DEFAULT_REVIEW_PROMPT_TYPE } from '@/constants/reviewPrompts'
+import { useSettingsStore } from '@/stores/useSettingsStore'
 
 interface AttachedPR {
   number: number
@@ -188,30 +190,17 @@ export function useLifecycleActions(worktreeId: string | null): LifecycleActions
     const target = targetBranch || currentReviewTarget || currentBranchInfo?.tracking || 'origin/main'
     const branchName = currentBranchInfo?.name || 'unknown'
 
-    let reviewTemplate = ''
-    try {
-      const tmpl = await window.fileOps.readPrompt('review.md')
-      if (tmpl.success && tmpl.content) {
-        reviewTemplate = tmpl.content
-      }
-    } catch {
-      // readPrompt failed, use fallback
-    }
+    const promptType = useSettingsStore.getState().reviewPromptType || DEFAULT_REVIEW_PROMPT_TYPE
+    const reviewTemplate = REVIEW_PROMPTS[promptType]
 
-    const prompt = reviewTemplate
-      ? [
-          reviewTemplate,
-          '',
-          '---',
-          '',
-          `Compare the current branch (${branchName}) against ${target}.`,
-          `Use \`git diff ${target}...HEAD\` to see all changes.`
-        ].join('\n')
-      : [
-          `Please review the changes on branch "${branchName}" compared to ${target}.`,
-          `Use \`git diff ${target}...HEAD\` to get the full diff.`,
-          'Focus on: bugs, logic errors, and code quality.'
-        ].join('\n')
+    const prompt = [
+      reviewTemplate,
+      '',
+      '---',
+      '',
+      `Compare the current branch (${branchName}) against ${target}.`,
+      `Use \`git diff ${target}...HEAD\` to see all changes.`
+    ].join('\n')
 
     const sessionStore = useSessionStore.getState()
     const result = await sessionStore.createSession(worktreeId, projectId)
