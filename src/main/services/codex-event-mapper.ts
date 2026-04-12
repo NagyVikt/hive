@@ -92,13 +92,18 @@ function normalizeToolInput(
 
 function normalizeCommandExecutionPresentation(
   item: Record<string, unknown> | undefined,
-  payload: Record<string, unknown> | undefined
+  payload: Record<string, unknown> | undefined,
+  commandActions?: unknown
 ): { toolName: string; input: Record<string, unknown> } {
   return normalizeCommandExecutionTool({
     command: item?.command ?? payload?.command,
     input: item?.input ?? payload?.input,
     commandActions:
-      (Array.isArray(item?.commandActions) ? item.commandActions : payload?.commandActions) ?? null
+      (Array.isArray(commandActions)
+        ? commandActions
+        : Array.isArray(item?.commandActions)
+          ? item.commandActions
+          : payload?.commandActions) ?? null
   })
 }
 
@@ -339,9 +344,6 @@ function extractItemInfo(event: CodexManagerEvent): ItemInfo {
     const item = candidate
     const itemRecord = item as Record<string, unknown>
     const itemType = item.type
-    const callId = item.id || event.itemId || ''
-    const status = 'status' in itemRecord ? asString(itemRecord.status) : undefined
-    const output = 'aggregatedOutput' in itemRecord ? itemRecord.aggregatedOutput : undefined
     const normalizedCommandTool =
       item.type === 'commandExecution'
         ? normalizeCommandExecutionTool({
@@ -349,8 +351,10 @@ function extractItemInfo(event: CodexManagerEvent): ItemInfo {
             commandActions: item.commandActions
           })
         : null
-    const toolName =
-      normalizedCommandTool?.toolName ?? normalizeCodexToolName(item.type)
+    const toolName = normalizedCommandTool?.toolName ?? normalizeCodexToolName(item.type)
+    const callId = item.id || event.itemId || ''
+    const status = 'status' in itemRecord ? asString(itemRecord.status) : undefined
+    const output = 'aggregatedOutput' in itemRecord ? itemRecord.aggregatedOutput : undefined
     const input = normalizedCommandTool?.input ?? deriveInputFromThreadItem(item)
     return {
       ...(itemType ? { itemType } : {}),
@@ -593,6 +597,12 @@ function mapCodexEventToStreamEventsInner(
 
     // Route command/file-change output to the tool card as outputDelta
     if ((streamKind === 'command_output' || streamKind === 'file_change_output') && event.itemId) {
+      const payload = asObject(event.payload)
+      const item = asObject(payload?.item)
+      const normalizedCommandTool =
+        streamKind === 'command_output'
+          ? normalizeCommandExecutionPresentation(item, payload)
+          : null
       return [
         {
           type: 'message.part.updated',
@@ -601,7 +611,10 @@ function mapCodexEventToStreamEventsInner(
             part: {
               type: 'tool',
               callID: event.itemId,
-              tool: streamKind === 'command_output' ? 'Bash' : 'fileChange',
+              tool:
+                streamKind === 'command_output'
+                  ? normalizedCommandTool?.toolName ?? 'Bash'
+                  : 'fileChange',
               state: { status: 'running', outputDelta: delta.text }
             }
           })
@@ -904,6 +917,7 @@ function mapCodexEventToStreamEventsInner(
     const callId =
       event.itemId ?? typed?.itemId ?? asString(tiItem?.id) ?? asString(tiPayload?.itemId) ?? ''
     if (!callId) return []
+    const normalizedCommandTool = normalizeCommandExecutionPresentation(tiItem, tiPayload)
 
     return [
       {
@@ -913,7 +927,7 @@ function mapCodexEventToStreamEventsInner(
           part: {
             type: 'tool',
             callID: callId,
-            tool: 'Bash',
+            tool: normalizedCommandTool.toolName,
             state: { status: 'running' }
           }
         })

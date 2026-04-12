@@ -17,6 +17,7 @@ import { asNumber, asObject, asString, toJsonSnapshot } from './codex-utils'
 import { logCodexLifecycleEvent } from './codex-debug-logger'
 import { generateCodexSessionTitle } from './codex-session-title'
 import type { DatabaseService } from '../db/database'
+import type { SessionMessageCreate } from '../db/types'
 import { autoRenameWorktreeBranch } from './git-service'
 import {
   normalizeCodexToolName,
@@ -1631,7 +1632,8 @@ export class CodexImplementer implements AgentSdkImplementer {
     if (!this.dbService) return
 
     try {
-      const rows = session.messages.flatMap((message) => {
+      const rows: Array<SessionMessageCreate & { created_at: string }> = session.messages.flatMap(
+        (message) => {
         const record = asObject(message)
         if (!record) return []
 
@@ -1661,7 +1663,8 @@ export class CodexImplementer implements AgentSdkImplementer {
             created_at: timestamp
           }
         ]
-      })
+        }
+      )
 
       this.dbService.replaceSessionMessages(
         session.hiveSessionId,
@@ -1870,6 +1873,13 @@ export class CodexImplementer implements AgentSdkImplementer {
         toolUse: {
           ...(existingToolUse ?? {}),
           ...nextToolUse,
+          name:
+            (outputDelta !== undefined &&
+              nextToolUse.name === 'Bash' &&
+              typeof existingToolUse?.name === 'string' &&
+              existingToolUse.name !== 'Bash'
+              ? existingToolUse.name
+              : nextToolUse.name) ?? 'unknown',
           ...(accumulatedOutput !== undefined ? { output: accumulatedOutput } : {}),
           startTime:
             typeof existingToolUse?.startTime === 'number'
@@ -2011,7 +2021,13 @@ export class CodexImplementer implements AgentSdkImplementer {
       const appendedOutput = tool.state.outputDelta
         ? ((existing.state.output as string) ?? '') + String(tool.state.outputDelta)
         : undefined
-      existing.tool = tool.tool || existing.tool
+      existing.tool =
+        tool.state.outputDelta !== undefined &&
+        tool.tool === 'Bash' &&
+        existing.tool &&
+        existing.tool !== 'Bash'
+          ? existing.tool
+          : tool.tool || existing.tool
       existing.state = {
         ...existing.state,
         ...tool.state,
@@ -2346,7 +2362,13 @@ export class CodexImplementer implements AgentSdkImplementer {
     if (existingIndex !== undefined) {
       const existing = draft.parts[existingIndex]
       if (existing && existing.type === 'tool') {
-        existing.tool = tool.tool || existing.tool
+        existing.tool =
+          (tool.state as any).outputDelta !== undefined &&
+          tool.tool === 'Bash' &&
+          existing.tool &&
+          existing.tool !== 'Bash'
+            ? existing.tool
+            : tool.tool || existing.tool
         const appendedOutput = (tool.state as any).outputDelta
           ? ((existing.state.output as string) ?? '') + (tool.state as any).outputDelta
           : undefined
