@@ -39,7 +39,8 @@ import type {
   KanbanTicketColumn,
   TicketMark,
   TicketFollowupMessage,
-  TicketFollowupMessageCreate
+  TicketFollowupMessageCreate,
+  TicketDependency
 } from './types'
 
 export class DatabaseService {
@@ -149,7 +150,8 @@ export class DatabaseService {
       github_pr_number: (row.github_pr_number as number) ?? null,
       github_pr_url: (row.github_pr_url as string) ?? null,
       mark: (row.mark as TicketMark) ?? null,
-      total_tokens: (row.total_tokens as number) ?? 0
+      total_tokens: (row.total_tokens as number) ?? 0,
+      pending_launch_config: (row.pending_launch_config as string) ?? null
     }
   }
 
@@ -1828,6 +1830,10 @@ export class DatabaseService {
       updates.push('mark = ?')
       values.push(data.mark)
     }
+    if (data.pending_launch_config !== undefined) {
+      updates.push('pending_launch_config = ?')
+      values.push(data.pending_launch_config)
+    }
 
     if (updates.length === 1) return existing // Only updated_at, nothing meaningful changed
 
@@ -1963,6 +1969,115 @@ export class DatabaseService {
     const result = db.prepare(
       'UPDATE kanban_tickets SET worktree_id = NULL, updated_at = ? WHERE worktree_id = ?'
     ).run(now, worktreeId)
+    return result.changes
+  }
+
+  addTicketDependency(
+    dependentId: string,
+    blockerId: string
+  ): { success: boolean; error?: string } {
+    return this.transaction(() => {
+      const db = this.getDb()
+
+      // Validate same project
+      const dependentTicket = db
+        .prepare('SELECT project_id FROM kanban_tickets WHERE id = ?')
+        .get(dependentId) as { project_id: string } | undefined
+      const blockerTicket = db
+        .prepare('SELECT project_id FROM kanban_tickets WHERE id = ?')
+        .get(blockerId) as { project_id: string } | undefined
+
+      if (!dependentTicket || !blockerTicket) {
+        return { success: false, error: 'Tickets must be in the same project' }
+      }
+      if (dependentTicket.project_id !== blockerTicket.project_id) {
+        return { success: false, error: 'Tickets must be in the same project' }
+      }
+
+      // BFS cycle detection: check if dependentId is reachable from blockerId
+      const visited = new Set<string>()
+      const queue: string[] = [blockerId]
+      visited.add(blockerId)
+
+      while (queue.length > 0) {
+        const node = queue.shift()!
+        const dependents = db
+          .prepare('SELECT dependent_id FROM ticket_dependencies WHERE blocker_id = ?')
+          .all(node) as { dependent_id: string }[]
+
+        for (const row of dependents) {
+          if (row.dependent_id === dependentId) {
+            return {
+              success: false,
+              error: 'Adding this dependency would create a circular dependency'
+            }
+          }
+          if (!visited.has(row.dependent_id)) {
+            visited.add(row.dependent_id)
+            queue.push(row.dependent_id)
+          }
+        }
+      }
+
+      // Safe to insert
+      const now = new Date().toISOString()
+      db.prepare(
+        'INSERT INTO ticket_dependencies (dependent_id, blocker_id, created_at) VALUES (?, ?, ?)'
+      ).run(dependentId, blockerId, now)
+
+      return { success: true }
+    })
+  }
+
+  removeTicketDependency(dependentId: string, blockerId: string): boolean {
+    const db = this.getDb()
+    const result = db
+      .prepare('DELETE FROM ticket_dependencies WHERE dependent_id = ? AND blocker_id = ?')
+      .run(dependentId, blockerId)
+    return result.changes > 0
+  }
+
+  getBlockersForTicket(ticketId: string): KanbanTicket[] {
+    const db = this.getDb()
+    const rows = db
+      .prepare(
+        `SELECT kt.* FROM kanban_tickets kt
+         JOIN ticket_dependencies td ON td.blocker_id = kt.id
+         WHERE td.dependent_id = ?`
+      )
+      .all(ticketId) as Record<string, unknown>[]
+    return rows.map((row) => this.mapKanbanTicketRow(row))
+  }
+
+  getDependentsOfTicket(ticketId: string): KanbanTicket[] {
+    const db = this.getDb()
+    const rows = db
+      .prepare(
+        `SELECT kt.* FROM kanban_tickets kt
+         JOIN ticket_dependencies td ON td.dependent_id = kt.id
+         WHERE td.blocker_id = ?`
+      )
+      .all(ticketId) as Record<string, unknown>[]
+    return rows.map((row) => this.mapKanbanTicketRow(row))
+  }
+
+  getDependenciesForProject(projectId: string): TicketDependency[] {
+    const db = this.getDb()
+    return db
+      .prepare(
+        `SELECT td.* FROM ticket_dependencies td
+         JOIN kanban_tickets kt1 ON kt1.id = td.dependent_id
+         JOIN kanban_tickets kt2 ON kt2.id = td.blocker_id
+         WHERE kt1.project_id = ? AND kt2.project_id = ?`
+      )
+      .all(projectId, projectId) as TicketDependency[]
+  }
+
+  removeAllDependenciesForTicket(ticketId: string): number {
+    const db = this.getDb()
+    const result = db
+      .prepare('DELETE FROM ticket_dependencies WHERE dependent_id = ? OR blocker_id = ?')
+      .run(ticketId, ticketId)
     return result.changes
   }
 
