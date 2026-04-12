@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import {
   Eye,
   EyeOff,
@@ -764,25 +765,24 @@ function EditModeContent({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // ── Dependency selectors ──────────────────────────────────────────
-  // Stable empty array to avoid referential-inequality loops in Zustand selectors
-  const EMPTY_TICKETS: readonly KanbanTicket[] = useMemo(() => [], [])
-
+  // useShallow prevents infinite re-render loops by doing shallow equality
+  // comparison on the returned array instead of Object.is reference check.
   const blockerTickets = useKanbanStore(
-    useCallback((state) => {
+    useShallow((state) => {
       const blockerIds = state.dependencyMap.get(ticket.id)
-      if (!blockerIds?.size) return EMPTY_TICKETS as KanbanTicket[]
+      if (!blockerIds?.size) return [] as KanbanTicket[]
       const result: KanbanTicket[] = []
       for (const [, projectTickets] of state.tickets) {
         for (const t of projectTickets) {
           if (blockerIds.has(t.id)) result.push(t)
         }
       }
-      return result.length > 0 ? result : EMPTY_TICKETS as KanbanTicket[]
-    }, [ticket.id, EMPTY_TICKETS])
+      return result
+    })
   )
 
   const dependentTickets = useKanbanStore(
-    useCallback((state) => {
+    useShallow((state) => {
       const result: KanbanTicket[] = []
       for (const [depId, blockerIds] of state.dependencyMap) {
         if (blockerIds.has(ticket.id)) {
@@ -792,8 +792,8 @@ function EditModeContent({
           }
         }
       }
-      return result.length > 0 ? result : EMPTY_TICKETS as KanbanTicket[]
-    }, [ticket.id, EMPTY_TICKETS])
+      return result
+    })
   )
 
   // Load live PR state so merge-button guard works (hide if already merged/closed)

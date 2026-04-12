@@ -1,4 +1,5 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { Paperclip, AlertCircle, Trash2, Archive, ArchiveRestore, GitBranch, ExternalLink, X, FileText, Pin, PinOff, RefreshCw, Link as LinkIcon, GitPullRequest, Loader2, Sparkles, Lock, Link2, Plus } from 'lucide-react'
 import { UpdateStatusModal } from './UpdateStatusModal'
 import { cn } from '@/lib/utils'
@@ -99,8 +100,10 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
   const dragCloneRef = useRef<HTMLElement | null>(null)
 
   // ── Dependency selectors ────────────────────────────────────────
+  // useShallow prevents infinite re-render loops by doing shallow equality
+  // comparison on the returned array instead of Object.is reference check.
   const blockerTickets = useKanbanStore(
-    useCallback((state) => {
+    useShallow((state) => {
       const blockerIds = state.dependencyMap.get(ticket.id)
       if (!blockerIds?.size) return EMPTY_ARRAY as unknown as KanbanTicket[]
       const result: KanbanTicket[] = []
@@ -110,7 +113,7 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
         }
       }
       return result
-    }, [ticket.id])
+    })
   )
 
   const unresolvedBlockerCount = useKanbanStore(
