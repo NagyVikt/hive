@@ -362,6 +362,7 @@ export interface KanbanTicket {
   github_pr_url: string | null
   mark: TicketMark | null
   total_tokens: number
+  pending_launch_config: string | null
 }
 
 export interface KanbanTicketCreate {
@@ -397,6 +398,24 @@ export interface KanbanTicketUpdate {
   github_pr_number?: number | null
   github_pr_url?: string | null
   mark?: TicketMark | null
+  pending_launch_config?: string | null
+}
+
+export interface TicketDependency {
+  dependent_id: string
+  blocker_id: string
+  created_at: string
+}
+
+export interface PendingLaunchConfig {
+  worktree:
+    | { type: 'new'; sourceBranch: string }
+    | { type: 'existing'; worktreeId: string }
+  prompt: string
+  mode: 'build' | 'plan' | 'super-plan'
+  model: { providerID: string; modelID: string; variant?: string } | null
+  sdk: 'opencode' | 'claude-code' | 'codex'
+  codexFastMode: boolean
 }
 
 // Ticket followup message types

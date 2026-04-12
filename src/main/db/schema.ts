@@ -1,4 +1,4 @@
-export const CURRENT_SCHEMA_VERSION = 21
+export const CURRENT_SCHEMA_VERSION = 22
 
 export const SCHEMA_SQL = `
 -- Projects table
@@ -428,6 +428,20 @@ export const MIGRATIONS: Migration[] = [
     version: 21,
     name: 'add_ticket_mark',
     up: `ALTER TABLE kanban_tickets ADD COLUMN mark TEXT DEFAULT NULL`,
+    down: `-- SQLite cannot drop columns; this is a no-op for safety`
+  },
+  {
+    version: 22,
+    name: 'add_ticket_dependencies',
+    up: `CREATE TABLE IF NOT EXISTS ticket_dependencies (
+  dependent_id TEXT NOT NULL REFERENCES kanban_tickets(id) ON DELETE CASCADE,
+  blocker_id TEXT NOT NULL REFERENCES kanban_tickets(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (dependent_id, blocker_id)
+);
+CREATE INDEX idx_ticket_deps_dependent ON ticket_dependencies(dependent_id);
+CREATE INDEX idx_ticket_deps_blocker ON ticket_dependencies(blocker_id);
+ALTER TABLE kanban_tickets ADD COLUMN pending_launch_config TEXT DEFAULT NULL;`,
     down: `-- SQLite cannot drop columns; this is a no-op for safety`
   }
 ]
