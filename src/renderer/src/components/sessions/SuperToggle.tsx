@@ -25,7 +25,8 @@ export function SuperToggle({ sessionId }: SuperToggleProps): React.JSX.Element 
         type="button"
         onClick={() => toggleSuperMode(sessionId)}
         aria-pressed={isOn}
-        aria-label={`Super mode ${isOn ? 'enabled' : 'disabled'}`}
+        aria-label={`Super mode ${isOn ? 'enabled' : 'disabled'} (Shift+Tab to toggle)`}
+        title="Toggle super-plan mode (Shift+Tab)"
         data-testid="super-toggle"
         className={cn(
           'flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium transition-colors',
