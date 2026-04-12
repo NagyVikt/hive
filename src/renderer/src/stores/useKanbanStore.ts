@@ -263,6 +263,26 @@ export const useKanbanStore = create<KanbanState>()(
 
         try {
           await window.kanban.ticket.delete(ticketId)
+
+          // Remove all dependency links for deleted ticket
+          window.kanban.dependency.removeAll(ticketId).catch(() => {})
+          // Update local dependency map
+          set((state) => {
+            const newMap = new Map(state.dependencyMap)
+            newMap.delete(ticketId)
+            for (const [depId, blockers] of newMap) {
+              if (blockers.has(ticketId)) {
+                const newSet = new Set(blockers)
+                newSet.delete(ticketId)
+                if (newSet.size === 0) {
+                  newMap.delete(depId)
+                } else {
+                  newMap.set(depId, newSet)
+                }
+              }
+            }
+            return { dependencyMap: newMap }
+          })
         } catch (err) {
           // Revert on failure
           set((state) => {

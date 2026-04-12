@@ -127,7 +127,11 @@ export const KanbanTicketCard = memo(function KanbanTicketCard({
     }, [ticket.id])
   )
 
-  const isBlocked = unresolvedBlockerCount > 0
+  const isSimpleMode = useKanbanStore(
+    useCallback((state) => state.simpleModeByProject[ticket.project_id] ?? false, [ticket.project_id])
+  )
+
+  const isBlocked = !isSimpleMode && unresolvedBlockerCount > 0
 
   // ── Lookup worktree name ────────────────────────────────────────
   const worktreeName = useWorktreeStore(

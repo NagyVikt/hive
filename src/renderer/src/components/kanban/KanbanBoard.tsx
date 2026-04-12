@@ -103,6 +103,27 @@ export function KanbanBoard({ projectId, projectPath, connectionId, isPinnedMode
     const targetTicketId = ticketEl.getAttribute('data-ticket-id')
     if (!targetTicketId || targetTicketId === dependencyMode.sourceTicketId) return
 
+    // Same-project check: only allow dependencies within the same project
+    const sourceTicket = (() => {
+      for (const [, projectTickets] of useKanbanStore.getState().tickets) {
+        const found = projectTickets.find(t => t.id === dependencyMode.sourceTicketId)
+        if (found) return found
+      }
+      return null
+    })()
+
+    const targetTicket = (() => {
+      for (const [, projectTickets] of useKanbanStore.getState().tickets) {
+        const found = projectTickets.find(t => t.id === targetTicketId)
+        if (found) return found
+      }
+      return null
+    })()
+
+    if (!sourceTicket || !targetTicket || sourceTicket.project_id !== targetTicket.project_id) {
+      return // Different projects — ignore click
+    }
+
     e.stopPropagation()
     e.preventDefault()
 
