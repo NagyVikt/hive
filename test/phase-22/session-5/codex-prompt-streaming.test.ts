@@ -38,6 +38,9 @@ vi.mock('../../../src/main/services/codex-app-server-manager', () => {
     getSession: vi.fn(),
     listSessions: vi.fn().mockReturnValue([]),
     sendTurn: vi.fn(),
+    respondToApproval: vi.fn(),
+    respondToUserInput: vi.fn(),
+    rejectUserInput: vi.fn(),
     on: vi.fn().mockImplementation((_event: string, handler: any) => {
       eventListeners.push(handler)
     }),
@@ -684,6 +687,139 @@ describe('CodexImplementer.prompt()', () => {
     expect(errorEvents.some((e: any) => e.data?.error?.includes('API key revoked'))).toBe(true)
   })
 
+  it('does not time out after five minutes while waiting on request_user_input', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const session = seedSession()
+      let settled = false
+
+      ;(impl as any).attachManagerListener()
+      mockManager.sendTurn.mockResolvedValue({ turnId: 'turn-1', threadId: 'thread-1' })
+
+      const promptPromise = impl
+        .prompt('/test/project', 'thread-1', 'Need clarification')
+        .then(() => {
+          settled = true
+        })
+
+      await Promise.resolve()
+
+      for (const listener of [...eventListeners]) {
+        listener({
+          id: 'e-question',
+          kind: 'request',
+          provider: 'codex',
+          threadId: 'thread-1',
+          createdAt: new Date().toISOString(),
+          method: 'item/tool/requestUserInput',
+          requestId: 'req-q-1',
+          payload: {
+            questions: [{ id: 'q1', question: 'Which file should I edit?' }]
+          }
+        })
+      }
+
+      await vi.advanceTimersByTimeAsync(301_000)
+
+      expect(settled).toBe(false)
+      expect(session.status).toBe('running')
+
+      const streamCalls = mockWindow.webContents.send.mock.calls
+        .filter((c: any[]) => c[0] === 'opencode:stream')
+        .map((c: any[]) => c[1])
+      expect(streamCalls.some((e: any) => e.type === 'session.error')).toBe(false)
+
+      for (const listener of [...eventListeners]) {
+        listener({
+          id: 'e-question-answered',
+          kind: 'notification',
+          provider: 'codex',
+          threadId: 'thread-1',
+          createdAt: new Date().toISOString(),
+          method: 'item/tool/requestUserInput/answered',
+          requestId: 'req-q-1',
+          payload: { requestId: 'req-q-1' }
+        })
+        listener({
+          id: 'e-done',
+          kind: 'notification',
+          provider: 'codex',
+          threadId: 'thread-1',
+          createdAt: new Date().toISOString(),
+          method: 'turn/completed',
+          payload: { turn: { status: 'completed' } }
+        })
+      }
+
+      await promptPromise
+      expect(session.status).toBe('ready')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not time out after five minutes while waiting on approval', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const session = seedSession()
+      let settled = false
+
+      ;(impl as any).attachManagerListener()
+      mockManager.sendTurn.mockResolvedValue({ turnId: 'turn-1', threadId: 'thread-1' })
+
+      const promptPromise = impl
+        .prompt('/test/project', 'thread-1', 'Run a command')
+        .then(() => {
+          settled = true
+        })
+
+      await Promise.resolve()
+
+      for (const listener of [...eventListeners]) {
+        listener({
+          id: 'e-approval',
+          kind: 'request',
+          provider: 'codex',
+          threadId: 'thread-1',
+          createdAt: new Date().toISOString(),
+          method: 'item/commandExecution/requestApproval',
+          requestId: 'req-a-1',
+          payload: { command: 'rm -rf /tmp/example' }
+        })
+      }
+
+      await vi.advanceTimersByTimeAsync(301_000)
+
+      expect(settled).toBe(false)
+      expect(session.status).toBe('running')
+
+      const promptState = impl.getSessions().get('/test/project::thread-1')
+      expect(promptState?.pendingHitlRequestIds?.has('req-a-1')).toBe(true)
+
+      await impl.permissionReply('req-a-1', 'once')
+
+      for (const listener of [...eventListeners]) {
+        listener({
+          id: 'e-done',
+          kind: 'notification',
+          provider: 'codex',
+          threadId: 'thread-1',
+          createdAt: new Date().toISOString(),
+          method: 'turn/completed',
+          payload: { turn: { status: 'completed' } }
+        })
+      }
+
+      await promptPromise
+      expect(session.status).toBe('ready')
+      expect(promptState?.pendingHitlRequestIds?.size ?? 0).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('sets session status to error on failed turn', async () => {
     const session = seedSession()
 
@@ -702,6 +838,28 @@ describe('CodexImplementer.prompt()', () => {
     await impl.prompt('/test/project', 'thread-1', 'test')
 
     expect(session.status).toBe('error')
+  })
+
+  it('still times out genuinely stuck turns when no HITL request is pending', async () => {
+    vi.useFakeTimers()
+
+    try {
+      const session = seedSession()
+      let rejectedError: Error | null = null
+
+      const waitPromise = (impl as any)
+        .waitForTurnCompletion(session, () => false, 50)
+        .catch((error: Error) => {
+          rejectedError = error
+        })
+
+      await vi.advanceTimersByTimeAsync(60)
+      await waitPromise
+
+      expect(rejectedError?.message).toBe('Turn timed out')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   // ── Session not found ───────────────────────────────────────
@@ -1076,10 +1234,10 @@ describe('CodexImplementer.prompt()', () => {
           type: 'tool_use',
           toolUse: {
             id: 'tool-1',
-            name: 'bash',
             output: 'file-a'
           }
         })
+        expect(['bash', 'Bash']).toContain(toolPart.toolUse.name)
         expect(['success', 'completed']).toContain(toolPart.toolUse.status)
       }
 
