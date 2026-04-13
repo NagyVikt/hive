@@ -38,6 +38,13 @@ import type { OpenCodeStreamEvent } from '@shared/types/opencode'
 const log = createLogger({ component: 'CodexImplementer' })
 // Balances write coalescing during rapid streaming against data freshness for crash recovery.
 const PERSIST_DEBOUNCE_MS = 2000
+const CODEX_TURN_TIMEOUT_MS = 36_000_000
+const HITL_REQUEST_METHODS = new Set([
+  'item/tool/requestUserInput',
+  'item/commandExecution/requestApproval',
+  'item/fileChange/requestApproval',
+  'item/fileRead/requestApproval'
+])
 
 // ── Session state ─────────────────────────────────────────────────
 
@@ -47,6 +54,7 @@ export interface CodexSessionState {
   worktreePath: string
   status: 'connecting' | 'ready' | 'running' | 'error' | 'closed'
   messages: unknown[]
+  pendingHitlRequestIds?: Set<string>
   liveAssistantDraft?: CodexLiveAssistantDraft | null
   currentTurnId: string | null
   currentAssistantMessageId: string | null
@@ -238,6 +246,7 @@ export class CodexImplementer implements AgentSdkImplementer {
   private handleManagerEvent(event: CodexManagerEvent): void {
     const targetSession = this.findSessionByThreadId(event.threadId)
     if (targetSession) {
+      this.syncPendingHitlRequestFromEvent(targetSession, event)
       this.persistActivity(targetSession, event)
     }
 
@@ -442,6 +451,7 @@ export class CodexImplementer implements AgentSdkImplementer {
       worktreePath,
       status: this.mapProviderStatus(providerSession.status),
       messages: [],
+      pendingHitlRequestIds: new Set(),
       liveAssistantDraft: null,
       currentTurnId: null,
       currentAssistantMessageId: null,
@@ -515,6 +525,7 @@ export class CodexImplementer implements AgentSdkImplementer {
         worktreePath,
         status: this.mapProviderStatus(providerSession.status),
         messages: [],
+        pendingHitlRequestIds: new Set(),
         liveAssistantDraft: null,
         currentTurnId: null,
         currentAssistantMessageId: null,
@@ -700,6 +711,7 @@ export class CodexImplementer implements AgentSdkImplementer {
     const handleEvent = (event: CodexManagerEvent) => {
       // Only handle events for this thread
       if (event.threadId !== session.threadId) return
+      this.syncPendingHitlRequestFromEvent(session, event)
 
       const streamEvents = mapCodexEventToStreamEvents(event, session.hiveSessionId)
       for (const streamEvent of streamEvents) {
@@ -1105,9 +1117,12 @@ export class CodexImplementer implements AgentSdkImplementer {
       answerCount: codexAnswers.length
     })
 
+    const session = this.findSessionByThreadId(pending.threadId)
+    if (session) {
+      this.clearPendingHitlRequest(session, requestId)
+    }
     this.manager.respondToUserInput(pending.threadId, requestId, codexAnswers)
     this.pendingQuestions.delete(requestId)
-    const session = this.findSessionByThreadId(pending.threadId)
     if (session) {
       this.persistSyntheticActivity(session, {
         id: `${requestId}:resolved`,
@@ -1138,9 +1153,12 @@ export class CodexImplementer implements AgentSdkImplementer {
       hiveSessionId: pending.hiveSessionId
     })
 
+    const session = this.findSessionByThreadId(pending.threadId)
+    if (session) {
+      this.clearPendingHitlRequest(session, requestId)
+    }
     this.manager.rejectUserInput(pending.threadId, requestId)
     this.pendingQuestions.delete(requestId)
-    const session = this.findSessionByThreadId(pending.threadId)
     if (session) {
       this.persistSyntheticActivity(session, {
         id: `${requestId}:resolved`,
@@ -1176,9 +1194,12 @@ export class CodexImplementer implements AgentSdkImplementer {
       decision
     })
 
+    const session = this.findSessionByThreadId(pending.threadId)
+    if (session) {
+      this.clearPendingHitlRequest(session, requestId)
+    }
     this.manager.respondToApproval(pending.threadId, requestId, decision)
     this.pendingApprovalSessions.delete(requestId)
-    const session = this.findSessionByThreadId(pending.threadId)
     if (session) {
       this.persistSyntheticActivity(session, {
         id: `${requestId}:resolved`,
@@ -1428,7 +1449,45 @@ export class CodexImplementer implements AgentSdkImplementer {
 
   // ── Private helpers ──────────────────────────────────────────────
 
+  private isHitlRequestMethod(method: string): boolean {
+    return HITL_REQUEST_METHODS.has(method)
+  }
+
+  private getPendingHitlRequestIds(session: CodexSessionState): Set<string> {
+    if (!session.pendingHitlRequestIds) {
+      session.pendingHitlRequestIds = new Set()
+    }
+    return session.pendingHitlRequestIds
+  }
+
+  private markPendingHitlRequest(session: CodexSessionState, requestId: string): void {
+    this.getPendingHitlRequestIds(session).add(requestId)
+  }
+
+  private clearPendingHitlRequest(session: CodexSessionState, requestId: string): void {
+    this.getPendingHitlRequestIds(session).delete(requestId)
+  }
+
+  private syncPendingHitlRequestFromEvent(
+    session: CodexSessionState,
+    event: Pick<CodexManagerEvent, 'kind' | 'method' | 'requestId'>
+  ): void {
+    if (event.kind === 'request' && event.requestId && this.isHitlRequestMethod(event.method)) {
+      this.markPendingHitlRequest(session, event.requestId)
+      return
+    }
+
+    if (event.method === 'item/tool/requestUserInput/answered' && event.requestId) {
+      this.clearPendingHitlRequest(session, event.requestId)
+    }
+  }
+
   private cleanupPendingForThread(threadId: string): void {
+    const session = this.findSessionByThreadId(threadId)
+    if (session) {
+      this.getPendingHitlRequestIds(session).clear()
+    }
+
     for (const [reqId, entry] of this.pendingQuestions.entries()) {
       if (entry.threadId === threadId) {
         this.pendingQuestions.delete(reqId)
@@ -2533,28 +2592,54 @@ export class CodexImplementer implements AgentSdkImplementer {
   private waitForTurnCompletion(
     session: CodexSessionState,
     isComplete: () => boolean,
-    timeoutMs = 300_000
+    timeoutMs = CODEX_TURN_TIMEOUT_MS
   ): Promise<void> {
     if (isComplete()) return Promise.resolve()
 
     return new Promise<void>((resolve, reject) => {
-      let timer = setTimeout(() => {
-        cleanup()
-        reject(new Error('Turn timed out'))
-      }, timeoutMs)
+      let timer: ReturnType<typeof setTimeout> | null = null
+      let isPaused = this.getPendingHitlRequestIds(session).size > 0
 
-      const resetTimer = () => {
-        clearTimeout(timer)
+      const clearTimer = () => {
+        if (timer) {
+          clearTimeout(timer)
+          timer = null
+        }
+      }
+
+      const armTimer = () => {
+        clearTimer()
+        if (isPaused) return
         timer = setTimeout(() => {
           cleanup()
           reject(new Error('Turn timed out'))
         }, timeoutMs)
       }
 
+      const syncPauseState = () => {
+        const shouldPause = this.getPendingHitlRequestIds(session).size > 0
+        if (shouldPause === isPaused) return
+        isPaused = shouldPause
+        if (isPaused) {
+          clearTimer()
+          return
+        }
+        armTimer()
+      }
+
+      const resetTimer = () => {
+        syncPauseState()
+        if (isPaused) return
+        armTimer()
+      }
+
       const checkEvent = (event: CodexManagerEvent) => {
         if (event.threadId !== session.threadId) return
 
-        // Reset timeout on any activity from this thread
+        this.syncPendingHitlRequestFromEvent(session, event)
+
+        // Reset timeout on any activity from this thread unless execution is
+        // intentionally paused waiting for a user answer or approval.
         resetTimer()
 
         if (event.method === 'turn/completed') {
@@ -2595,11 +2680,12 @@ export class CodexImplementer implements AgentSdkImplementer {
       }
 
       const cleanup = () => {
-        clearTimeout(timer)
+        clearTimer()
         this.manager.removeListener('event', checkEvent)
       }
 
       this.manager.on('event', checkEvent)
+      armTimer()
 
       // Check again in case it completed between the start and listener setup
       if (isComplete()) {
@@ -2703,6 +2789,7 @@ export class CodexImplementer implements AgentSdkImplementer {
         worktreePath,
         status: this.mapProviderStatus(providerSession.status),
         messages: [],
+        pendingHitlRequestIds: new Set(),
         liveAssistantDraft: null,
         currentTurnId: null,
         currentAssistantMessageId: null,
