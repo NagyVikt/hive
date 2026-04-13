@@ -20,8 +20,6 @@ import {
   Archive,
   Loader2,
   Github,
-  FileUp,
-  File as FileIcon,
   Upload,
   Lock,
   Plus
@@ -72,6 +70,7 @@ import { ProviderIcon, getProviderLabel } from '@/components/ui/provider-icon'
 import { useLifecycleActions } from '@/hooks/useLifecycleActions'
 import { usePinAndActivateSession } from '@/hooks/usePinAndActivateSession'
 import { TicketAttachmentEditor } from './TicketAttachmentEditor'
+import { TicketDiscardChangesDialog } from './TicketDiscardChangesDialog'
 import { useImagePaste } from '@/hooks/useImagePaste'
 import type { KanbanTicket, KanbanTicketUpdate, Worktree } from '../../../../main/db/types'
 
@@ -90,6 +89,24 @@ const MODE_DIALOG_CLASS: Record<ModalMode, string> = {
 
 // TicketAttachment is now imported from TicketAttachmentEditor
 type TicketAttachment = import('./TicketAttachmentEditor').TicketAttachment
+
+function normalizeDraftText(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? ''
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function normalizeTicketAttachments(attachments: unknown[]): string {
+  return JSON.stringify(
+    attachments.map((attachment) => {
+      const candidate = attachment as { type?: string; url?: string; label?: string }
+      return {
+        type: candidate.type ?? '',
+        url: candidate.url ?? '',
+        label: candidate.label ?? ''
+      }
+    })
+  )
+}
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -307,34 +324,24 @@ export function KanbanTicketModal() {
     return null
   }, [selectedTicketId, tickets])
 
-  const open = ticket !== null
-  const handleOpenChange = useCallback(
-    (isOpen: boolean) => {
-      if (!isOpen) setSelectedTicketId(null)
-    },
-    [setSelectedTicketId]
-  )
-
   if (!ticket) return null
 
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <KanbanTicketModalContent ticket={ticket} onClose={() => setSelectedTicketId(null)} />
-    </Dialog>
-  )
+  return <KanbanTicketModalContent ticket={ticket} onForceClose={() => setSelectedTicketId(null)} />
 }
 
 // ── Inner content (only rendered when ticket is non-null) ───────────
 function KanbanTicketModalContent({
   ticket,
-  onClose
+  onForceClose
 }: {
   ticket: KanbanTicket
-  onClose: () => void
+  onForceClose: () => void
 }) {
   const updateTicket = useKanbanStore((s) => s.updateTicket)
   const deleteTicket = useKanbanStore((s) => s.deleteTicket)
   const moveTicket = useKanbanStore((s) => s.moveTicket)
+  const [editDraftDirty, setEditDraftDirty] = useState(false)
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
 
   // ── Session lookup ────────────────────────────────────────────────
   const sessionStatus = useSessionStore(
@@ -495,6 +502,30 @@ function KanbanTicketModalContent({
   // the agent regardless of other ticket state (error, plan_ready, etc.)
   const modalMode = activeQuestion ? 'question' : baseModalMode
 
+  useEffect(() => {
+    setEditDraftDirty(false)
+    setShowDiscardConfirm(false)
+  }, [ticket.id, modalMode])
+
+  const forceClose = useCallback(() => {
+    setShowDiscardConfirm(false)
+    onForceClose()
+  }, [onForceClose])
+
+  const requestClose = useCallback(() => {
+    if (modalMode === 'edit' && editDraftDirty) {
+      setShowDiscardConfirm(true)
+      return
+    }
+    forceClose()
+  }, [editDraftDirty, forceClose, modalMode])
+
+  const handleDialogOpenChange = useCallback((isOpen: boolean) => {
+    if (!isOpen) {
+      requestClose()
+    }
+  }, [requestClose])
+
   // ── Session stream resolution ────────────────────────────────────
   let worktreePath: string | null = null
   if (effectiveSession?.worktree_id) {
@@ -597,7 +628,9 @@ function KanbanTicketModalContent({
       modeContent = (
         <EditModeContent
           ticket={ticket}
-          onClose={onClose}
+          onClose={forceClose}
+          onRequestClose={requestClose}
+          onDirtyChange={setEditDraftDirty}
           updateTicket={updateTicket}
           deleteTicket={deleteTicket}
         />
@@ -607,7 +640,7 @@ function KanbanTicketModalContent({
       modeContent = (
         <PlanReviewModeContent
           ticket={ticket}
-          onClose={onClose}
+          onClose={forceClose}
           pendingPlan={pendingPlan}
           sessionRecord={effectiveSession}
           updateTicket={updateTicket}
@@ -621,7 +654,7 @@ function KanbanTicketModalContent({
       modeContent = (
         <ReviewModeContent
           ticket={ticket}
-          onClose={onClose}
+          onClose={forceClose}
           moveTicket={moveTicket}
           updateTicket={updateTicket}
           dualPane={wantsDualPane}
@@ -629,13 +662,13 @@ function KanbanTicketModalContent({
       )
       break
     case 'error':
-      modeContent = <ErrorModeContent ticket={ticket} onClose={onClose} dualPane={wantsDualPane} />
+      modeContent = <ErrorModeContent ticket={ticket} onClose={forceClose} dualPane={wantsDualPane} />
       break
     case 'question':
       modeContent = (
         <QuestionModeContent
           ticket={ticket}
-          onClose={onClose}
+          onClose={forceClose}
           activeQuestion={activeQuestion!}
           dualPane={wantsDualPane}
         />
@@ -644,8 +677,10 @@ function KanbanTicketModalContent({
   }
 
   // ── Full-width session layout (only in-progress edit mode — left pane has no actionable content) ──
+  let dialogBody: React.ReactNode
+
   if (wantsDualPane && modalMode === 'edit' && ticket.column === 'in_progress') {
-    return (
+    dialogBody = (
       <DialogContent
         data-testid="kanban-ticket-modal"
         className="w-[96vw] max-w-[1920px] h-[90vh] p-0 gap-0 overflow-hidden"
@@ -663,7 +698,7 @@ function KanbanTicketModalContent({
               headerAction={(
                 <JumpToSessionButton
                   ticket={ticket}
-                  onClose={onClose}
+                  onClose={forceClose}
                   label="Go to session"
                   testId="go-to-session-btn"
                 />
@@ -678,11 +713,9 @@ function KanbanTicketModalContent({
         </div>
       </DialogContent>
     )
-  }
-
-  // ── Dual-pane layout (ticket + session stream) ──────────────────
-  if (wantsDualPane) {
-    return (
+  } else if (wantsDualPane) {
+    // ── Dual-pane layout (ticket + session stream) ──────────────────
+    dialogBody = (
       <DialogContent
         data-testid="kanban-ticket-modal"
         className="w-[96vw] max-w-[1920px] h-[90vh] p-0 gap-0 overflow-hidden"
@@ -720,16 +753,27 @@ function KanbanTicketModalContent({
         </div>
       </DialogContent>
     )
+  } else {
+    // ── Standard layout (no session) ────────────────────────────────
+    dialogBody = (
+      <DialogContent
+        data-testid="kanban-ticket-modal"
+        className={MODE_DIALOG_CLASS[modalMode]}
+      >
+        {modeContent}
+      </DialogContent>
+    )
   }
 
-  // ── Standard layout (no session) ────────────────────────────────
   return (
-    <DialogContent
-      data-testid="kanban-ticket-modal"
-      className={MODE_DIALOG_CLASS[modalMode]}
-    >
-      {modeContent}
-    </DialogContent>
+    <Dialog open onOpenChange={handleDialogOpenChange}>
+      {dialogBody}
+      <TicketDiscardChangesDialog
+        open={showDiscardConfirm}
+        onKeepEditing={() => setShowDiscardConfirm(false)}
+        onDiscard={forceClose}
+      />
+    </Dialog>
   )
 }
 
@@ -740,11 +784,15 @@ function KanbanTicketModalContent({
 function EditModeContent({
   ticket,
   onClose,
+  onRequestClose,
+  onDirtyChange,
   updateTicket,
   deleteTicket
 }: {
   ticket: KanbanTicket
   onClose: () => void
+  onRequestClose: () => void
+  onDirtyChange: (isDirty: boolean) => void
   updateTicket: (ticketId: string, projectId: string, data: KanbanTicketUpdate) => Promise<void>
   deleteTicket: (ticketId: string, projectId: string) => Promise<void>
 }) {
@@ -763,6 +811,13 @@ function EditModeContent({
   const lifecycle = useLifecycleActions(ticket.worktree_id)
   const { pinAndActivate: pinAndActivateSession, lifecycleLoading } = usePinAndActivateSession(onClose)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const isDirty = normalizeDraftText(title) !== normalizeDraftText(ticket.title)
+    || normalizeDraftText(description) !== normalizeDraftText(ticket.description)
+    || normalizeTicketAttachments(attachments) !== normalizeTicketAttachments(ticket.attachments)
+
+  useEffect(() => {
+    onDirtyChange(isDirty)
+  }, [isDirty, onDirtyChange])
 
   // ── Dependency selectors ──────────────────────────────────────────
   // useShallow prevents infinite re-render loops by doing shallow equality
@@ -1106,7 +1161,7 @@ function EditModeContent({
             type="button"
             variant="outline"
             data-testid="ticket-edit-cancel-btn"
-            onClick={onClose}
+            onClick={onRequestClose}
           >
             Cancel
           </Button>
