@@ -201,7 +201,7 @@ describe('Session 7: Ticket Creation Modal', () => {
     })
   })
 
-  test('Cancel button closes modal without creating', () => {
+  test('pristine Cancel button closes modal without creating', () => {
     const onOpenChange = vi.fn()
     render(
       <TicketCreateModal open={true} onOpenChange={onOpenChange} projectId="proj-1" />
@@ -212,6 +212,69 @@ describe('Session 7: Ticket Creation Modal', () => {
 
     expect(onOpenChange).toHaveBeenCalledWith(false)
     expect(mockKanban.ticket.create).not.toHaveBeenCalled()
+  })
+
+  test('dirty Cancel button shows discard confirmation before closing', () => {
+    const onOpenChange = vi.fn()
+    render(
+      <TicketCreateModal open={true} onOpenChange={onOpenChange} projectId="proj-1" />
+    )
+
+    fireEvent.change(screen.getByTestId('ticket-title-input'), {
+      target: { value: 'Unsaved ticket' }
+    })
+
+    fireEvent.click(screen.getByTestId('ticket-cancel-btn'))
+
+    expect(screen.getByTestId('ticket-discard-confirm-dialog')).toBeInTheDocument()
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  test('discard confirmation keep editing preserves create draft', () => {
+    const onOpenChange = vi.fn()
+    render(
+      <TicketCreateModal open={true} onOpenChange={onOpenChange} projectId="proj-1" />
+    )
+
+    const titleInput = screen.getByTestId('ticket-title-input') as HTMLInputElement
+    fireEvent.change(titleInput, { target: { value: 'Unsaved ticket' } })
+    fireEvent.click(screen.getByTestId('ticket-cancel-btn'))
+    fireEvent.click(screen.getByTestId('ticket-discard-keep-editing-btn'))
+
+    expect(screen.queryByTestId('ticket-discard-confirm-dialog')).not.toBeInTheDocument()
+    expect(titleInput).toHaveValue('Unsaved ticket')
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  test('discard confirmation closes create modal after confirm', () => {
+    const onOpenChange = vi.fn()
+    render(
+      <TicketCreateModal open={true} onOpenChange={onOpenChange} projectId="proj-1" />
+    )
+
+    fireEvent.change(screen.getByTestId('ticket-description-input'), {
+      target: { value: 'Unsaved description' }
+    })
+    fireEvent.click(screen.getByTestId('ticket-cancel-btn'))
+    fireEvent.click(screen.getByTestId('ticket-discard-confirm-btn'))
+
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  test('top-right close button uses the same discard confirmation in create modal', () => {
+    const onOpenChange = vi.fn()
+    render(
+      <TicketCreateModal open={true} onOpenChange={onOpenChange} projectId="proj-1" />
+    )
+
+    fireEvent.change(screen.getByTestId('ticket-title-input'), {
+      target: { value: 'Unsaved ticket' }
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^close$/i }))
+
+    expect(screen.getByTestId('ticket-discard-confirm-dialog')).toBeInTheDocument()
+    expect(onOpenChange).not.toHaveBeenCalled()
   })
 
   test('description field accepts markdown text', () => {

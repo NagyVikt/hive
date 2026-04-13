@@ -386,6 +386,103 @@ describe('Session 11: Kanban Ticket Modal Modes', () => {
       })
     })
 
+    test('pristine cancel closes edit modal immediately', () => {
+      act(() => {
+        useKanbanStore.setState({ selectedTicketId: 'ticket-1' })
+      })
+
+      render(<KanbanTicketModal />)
+
+      fireEvent.click(screen.getByTestId('ticket-edit-cancel-btn'))
+
+      expect(useKanbanStore.getState().selectedTicketId).toBeNull()
+      expect(screen.queryByTestId('ticket-discard-confirm-dialog')).not.toBeInTheDocument()
+    })
+
+    test('dirty cancel shows discard confirmation instead of closing edit modal', () => {
+      act(() => {
+        useKanbanStore.setState({ selectedTicketId: 'ticket-1' })
+      })
+
+      render(<KanbanTicketModal />)
+
+      fireEvent.change(screen.getByTestId('ticket-edit-title-input'), {
+        target: { value: 'Changed title' }
+      })
+      fireEvent.click(screen.getByTestId('ticket-edit-cancel-btn'))
+
+      expect(useKanbanStore.getState().selectedTicketId).toBe('ticket-1')
+      expect(screen.getByTestId('ticket-discard-confirm-dialog')).toBeInTheDocument()
+    })
+
+    test('keep editing preserves edit draft after discard prompt', () => {
+      act(() => {
+        useKanbanStore.setState({ selectedTicketId: 'ticket-1' })
+      })
+
+      render(<KanbanTicketModal />)
+
+      const descriptionInput = screen.getByTestId('ticket-edit-description-input') as HTMLTextAreaElement
+      fireEvent.change(descriptionInput, {
+        target: { value: 'Changed description' }
+      })
+      fireEvent.click(screen.getByTestId('ticket-edit-cancel-btn'))
+      fireEvent.click(screen.getByTestId('ticket-discard-keep-editing-btn'))
+
+      expect(useKanbanStore.getState().selectedTicketId).toBe('ticket-1')
+      expect(descriptionInput).toHaveValue('Changed description')
+      expect(screen.queryByTestId('ticket-discard-confirm-dialog')).not.toBeInTheDocument()
+    })
+
+    test('discard confirmation closes edit modal without saving', () => {
+      act(() => {
+        useKanbanStore.setState({ selectedTicketId: 'ticket-1' })
+      })
+
+      render(<KanbanTicketModal />)
+
+      fireEvent.change(screen.getByTestId('ticket-edit-title-input'), {
+        target: { value: 'Changed title' }
+      })
+      fireEvent.click(screen.getByTestId('ticket-edit-cancel-btn'))
+      fireEvent.click(screen.getByTestId('ticket-discard-confirm-btn'))
+
+      expect(useKanbanStore.getState().selectedTicketId).toBeNull()
+      expect(mockKanban.ticket.update).not.toHaveBeenCalled()
+    })
+
+    test('top-right close button uses the same discard confirmation in edit modal', () => {
+      act(() => {
+        useKanbanStore.setState({ selectedTicketId: 'ticket-1' })
+      })
+
+      render(<KanbanTicketModal />)
+
+      fireEvent.change(screen.getByTestId('ticket-edit-title-input'), {
+        target: { value: 'Changed title' }
+      })
+      fireEvent.click(screen.getByRole('button', { name: /^close$/i }))
+
+      expect(useKanbanStore.getState().selectedTicketId).toBe('ticket-1')
+      expect(screen.getByTestId('ticket-discard-confirm-dialog')).toBeInTheDocument()
+    })
+
+    test('reverting edit draft back to original allows immediate close', () => {
+      act(() => {
+        useKanbanStore.setState({ selectedTicketId: 'ticket-1' })
+      })
+
+      render(<KanbanTicketModal />)
+
+      const titleInput = screen.getByTestId('ticket-edit-title-input')
+      fireEvent.change(titleInput, { target: { value: 'Changed title' } })
+      fireEvent.change(titleInput, { target: { value: 'Implement auth flow' } })
+      fireEvent.click(screen.getByTestId('ticket-edit-cancel-btn'))
+
+      expect(useKanbanStore.getState().selectedTicketId).toBeNull()
+      expect(screen.queryByTestId('ticket-discard-confirm-dialog')).not.toBeInTheDocument()
+    })
+
     test('delete removes ticket after confirmation', async () => {
       act(() => {
         useKanbanStore.setState({ selectedTicketId: 'ticket-1' })

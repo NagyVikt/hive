@@ -19,6 +19,7 @@ import { usePinnedStore } from '@/stores/usePinnedStore'
 import { toast } from '@/lib/toast'
 import { cn } from '@/lib/utils'
 import { TicketAttachmentEditor, MAX_ATTACHMENTS } from './TicketAttachmentEditor'
+import { TicketDiscardChangesDialog } from './TicketDiscardChangesDialog'
 import type { TicketAttachment } from './TicketAttachmentEditor'
 import { useImagePaste } from '@/hooks/useImagePaste'
 
@@ -38,6 +39,7 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId,
   const [attachments, setAttachments] = useState<TicketAttachment[]>([])
   const [isCreating, setIsCreating] = useState(false)
   const [selectedProjectId, setSelectedProjectId] = useState('')
+  const [showDiscardConfirm, setShowDiscardConfirm] = useState(false)
 
   const titleInputRef = useRef<HTMLInputElement>(null)
   const createdSuccessfully = useRef(false)
@@ -74,6 +76,11 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId,
 
   const isMultiProjectMode = isConnectionMode || !!isPinnedMode
   const availableProjects = isConnectionMode ? connectionProjects : pinnedProjects
+  const initialSelectedProjectId = availableProjects[0]?.id ?? ''
+  const isDirty = title.trim().length > 0
+    || description.trim().length > 0
+    || attachments.length > 0
+    || (isMultiProjectMode && selectedProjectId !== '' && selectedProjectId !== initialSelectedProjectId)
 
   // Allow natural Tab navigation between form fields — block SessionView's
   // global capture-phase Tab handler which would toggle Build/Plan mode instead.
@@ -97,6 +104,7 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId,
     if (open) {
       createdSuccessfully.current = false
     } else {
+      setShowDiscardConfirm(false)
       // Modal just closed — if creation didn't succeed, delete any saved images
       if (!createdSuccessfully.current) {
         for (const att of attachments) {
@@ -147,6 +155,7 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId,
         column: 'todo'
       })
       createdSuccessfully.current = true
+      setShowDiscardConfirm(false)
       toast.success('Ticket created')
       onOpenChange(false)
     } catch {
@@ -156,9 +165,30 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId,
     }
   }, [title, description, attachments, isCreating, createTicket, projectId, selectedProjectId, isMultiProjectMode, onOpenChange])
 
-  const handleCancel = useCallback(() => {
+  const closeImmediately = useCallback(() => {
+    setShowDiscardConfirm(false)
     onOpenChange(false)
   }, [onOpenChange])
+
+  const requestClose = useCallback(() => {
+    if (isDirty) {
+      setShowDiscardConfirm(true)
+      return
+    }
+    closeImmediately()
+  }, [closeImmediately, isDirty])
+
+  const handleCancel = useCallback(() => {
+    requestClose()
+  }, [requestClose])
+
+  const handleDialogOpenChange = useCallback((nextOpen: boolean) => {
+    if (!nextOpen) {
+      requestClose()
+      return
+    }
+    onOpenChange(true)
+  }, [onOpenChange, requestClose])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -172,7 +202,7 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId,
   const isTitleEmpty = !title.trim()
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent
         data-testid="ticket-create-modal"
         className={cn("sm:max-w-lg", isDragOver && "ring-2 ring-primary ring-offset-2")}
@@ -301,6 +331,11 @@ export function TicketCreateModal({ open, onOpenChange, projectId, connectionId,
           </Button>
         </DialogFooter>
       </DialogContent>
+      <TicketDiscardChangesDialog
+        open={showDiscardConfirm}
+        onKeepEditing={() => setShowDiscardConfirm(false)}
+        onDiscard={closeImmediately}
+      />
     </Dialog>
   )
 }
