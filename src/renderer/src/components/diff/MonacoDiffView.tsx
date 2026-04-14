@@ -9,7 +9,9 @@ import { MonacoDiffToolbar } from './MonacoDiffToolbar'
 import { HunkActionGutter } from './HunkActionGutter'
 import { PrCommentGutter } from './PrCommentGutter'
 import { DiffCommentGutter } from './DiffCommentGutter'
+import { DiffCommentToolbar } from './DiffCommentToolbar'
 import { usePRReviewStore } from '@/stores/usePRReviewStore'
+import { useWorktreeStore } from '@/stores/useWorktreeStore'
 import type { PRReviewComment } from '@shared/types/git'
 import type { editor } from 'monaco-editor'
 
@@ -57,6 +59,9 @@ export default function MonacoDiffView({
   const modifiedEditorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const [editorReady, setEditorReady] = useState(false)
   const [zonesReady, setZonesReady] = useState(!prReviewWorktreeId)
+
+  // Worktree ID for diff comment toolbar
+  const worktreeId = useWorktreeStore((s) => s.selectedWorktreeId)
 
   // PR review comments for this file (when in PR review mode)
   const allPrComments = usePRReviewStore(
@@ -394,6 +399,9 @@ export default function MonacoDiffView({
             modifiedEditor={modifiedEditorRef.current}
             filePath={filePath}
           />
+        )}
+        {!prReviewWorktreeId && worktreeId && (
+          <DiffCommentToolbar worktreeId={worktreeId} />
         )}
       </div>
     </div>
