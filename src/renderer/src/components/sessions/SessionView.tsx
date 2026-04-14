@@ -512,6 +512,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   const [showSlashCommands, setShowSlashCommands] = useState(false)
   const [revertMessageID, setRevertMessageID] = useState<string | null>(null)
   const [forkingMessageId, setForkingMessageId] = useState<string | null>(null)
+  const [steeringMessageId, setSteeringMessageId] = useState<string | null>(null)
   const revertDiffRef = useRef<string | null>(null)
 
   // Runtime capabilities for undo/redo gating
@@ -3860,7 +3861,8 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
   const handleSteerMessage = useCallback(
     async (messageId: string, content: string) => {
-      if (!worktreePath || !opencodeSessionId) return
+      if (!worktreePath || !opencodeSessionId || steeringMessageId) return
+      setSteeringMessageId(messageId)
       try {
         const result = await window.opencodeOps?.steer?.(worktreePath, opencodeSessionId, content)
         if (result?.success) {
@@ -3873,9 +3875,11 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
         }
       } catch (error) {
         console.warn('Steer error', { messageId, error })
+      } finally {
+        setSteeringMessageId(null)
       }
     },
-    [worktreePath, opencodeSessionId, sessionId]
+    [worktreePath, opencodeSessionId, sessionId, steeringMessageId]
   )
 
   const handleForkFromAssistantMessage = useCallback(
@@ -5555,6 +5559,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
               queuedMessages={queuedMessages}
               canSteer={canSteer}
               onSteerMessage={handleSteerMessage}
+              steeringMessageId={steeringMessageId}
               completionEntry={completionEntry}
               scrollElement={scrollElement}
               lockViewport={sessionAgentSdk === 'codex' && showScrollFab}

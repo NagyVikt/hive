@@ -5,10 +5,11 @@ interface QueuedMessageBubbleProps {
   content: string
   steered?: boolean
   canSteer?: boolean
+  isLoading?: boolean
   onSteer?: () => void
 }
 
-export function QueuedMessageBubble({ content, steered, canSteer, onSteer }: QueuedMessageBubbleProps): React.JSX.Element {
+export function QueuedMessageBubble({ content, steered, canSteer, isLoading, onSteer }: QueuedMessageBubbleProps): React.JSX.Element {
   return (
     <div className="flex justify-end px-6 py-4 opacity-70" data-testid="queued-message-bubble">
       <div className={cn('max-w-[80%] rounded-2xl px-4 py-3', 'bg-primary/10 text-foreground')}>
@@ -25,10 +26,14 @@ export function QueuedMessageBubble({ content, steered, canSteer, onSteer }: Que
               {canSteer && (
                 <button
                   onClick={onSteer}
-                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  disabled={isLoading}
+                  className={cn(
+                    "text-muted-foreground hover:text-foreground transition-colors",
+                    isLoading && "opacity-50 cursor-not-allowed"
+                  )}
                   title="Steer — inject into active turn"
                 >
-                  <Navigation className="w-3.5 h-3.5" />
+                  <Navigation className={cn("w-3.5 h-3.5", isLoading && "animate-spin")} />
                 </button>
               )}
             </>

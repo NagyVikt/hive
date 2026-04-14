@@ -40,7 +40,8 @@ export interface VirtualizedMessageListProps {
   hasVisibleWritingCursor: boolean
   queuedMessages: { id: string; content: string; steered?: boolean }[]
   canSteer: boolean
-  onSteerMessage: (messageId: string, content: string) => void
+  onSteerMessage: (messageId: string, content: string) => void | Promise<void>
+  steeringMessageId: string | null
   completionEntry: { word?: string; durationMs?: number } | null
   scrollElement: HTMLDivElement | null
   lockViewport: boolean
@@ -88,6 +89,7 @@ export const VirtualizedMessageList = memo(
   queuedMessages,
   canSteer,
   onSteerMessage,
+  steeringMessageId,
   completionEntry,
   scrollElement,
   lockViewport
@@ -328,6 +330,7 @@ export const VirtualizedMessageList = memo(
               content={item.queuedMessage.content}
               steered={item.queuedMessage.steered}
               canSteer={canSteer}
+              isLoading={steeringMessageId === item.queuedMessage.id}
               onSteer={() => onSteerMessage(item.queuedMessage.id, item.queuedMessage.content)}
             />
           )
