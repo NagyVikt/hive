@@ -27,7 +27,6 @@ import { ContextIndicator } from './ContextIndicator'
 import { AttachmentButton } from './AttachmentButton'
 import { AttachmentPreview } from './AttachmentPreview'
 import { TicketAttachments } from './TicketAttachments'
-import { DiffCommentAttachments } from './DiffCommentAttachments'
 import { CodexFastToggle } from './CodexFastToggle'
 import type { Attachment } from './AttachmentPreview'
 import {
@@ -69,7 +68,6 @@ import { useProjectStore } from '@/stores/useProjectStore'
 import { useKanbanStore } from '@/stores/useKanbanStore'
 import { useConnectionStore } from '@/stores/useConnectionStore'
 import { usePRReviewStore } from '@/stores/usePRReviewStore'
-import { useDiffCommentStore } from '@/stores/useDiffCommentStore'
 import { useFileTreeStore } from '@/stores/useFileTreeStore'
 import { mapOpencodeMessagesToSessionViewMessages } from '@/lib/opencode-transcript'
 import { appendStreamedAssistantFallback } from '@/lib/transcript-refresh'
@@ -162,6 +160,7 @@ export interface OpenCodeMessage {
   timestamp: string
   /** Interleaved parts for assistant messages with tool calls */
   parts?: StreamingPart[]
+  steered?: boolean
 }
 
 export interface SessionViewState {
@@ -241,6 +240,11 @@ function hasSuspiciousCodexRoleGrouping(messages: OpenCodeMessage[]): boolean {
   const lastUserIndex = userIndices[userIndices.length - 1]
   const firstAssistantIndex = assistantIndices[0]
   return lastUserIndex < firstAssistantIndex
+}
+
+function buildCanonicalTurnRolePattern(turnId: string, role: 'user' | 'assistant'): RegExp {
+  const escapedTurnId = turnId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`^${escapedTurnId}:${role}(?::\\d+)?$`)
 }
 
 function delay(ms: number): Promise<void> {
@@ -328,13 +332,55 @@ function extractSessionErrorStderr(data: unknown): string | null {
   return asString(nestedData?.stderr) || asString(record.stderr) || null
 }
 
-function createLocalMessage(role: OpenCodeMessage['role'], content: string): OpenCodeMessage {
+function createLocalMessage(
+  role: OpenCodeMessage['role'],
+  content: string,
+  extra?: Partial<Pick<OpenCodeMessage, 'id' | 'steered'>>
+): OpenCodeMessage {
   return {
-    id: `local-${crypto.randomUUID()}`,
+    id: extra?.id ?? `local-${crypto.randomUUID()}`,
     role,
     content,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    ...extra
   }
+}
+
+function insertSteeredMessageAtBoundary(
+  messages: OpenCodeMessage[],
+  steeredMessage: OpenCodeMessage,
+  options: {
+    anchorAssistantMessageId?: string | null
+    turnId?: string
+  }
+): { nextMessages: OpenCodeMessage[]; inserted: boolean } {
+  const existingIndex = messages.findIndex((message) => message.id === steeredMessage.id)
+  const withoutExisting =
+    existingIndex >= 0 ? messages.filter((message) => message.id !== steeredMessage.id) : messages
+
+  const anchorAssistantIndex = options.anchorAssistantMessageId
+    ? withoutExisting.findIndex((message) => message.id === options.anchorAssistantMessageId)
+    : -1
+
+  if (anchorAssistantIndex >= 0) {
+    const nextMessages = [...withoutExisting]
+    nextMessages.splice(anchorAssistantIndex + 1, 0, steeredMessage)
+    return { nextMessages, inserted: true }
+  }
+
+  if (options.turnId) {
+    const assistantPattern = buildCanonicalTurnRolePattern(options.turnId, 'assistant')
+    for (let index = withoutExisting.length - 1; index >= 0; index--) {
+      const message = withoutExisting[index]
+      if (message.role === 'assistant' && assistantPattern.test(message.id)) {
+        const nextMessages = [...withoutExisting]
+        nextMessages.splice(index + 1, 0, steeredMessage)
+        return { nextMessages, inserted: true }
+      }
+    }
+  }
+
+  return { nextMessages: [...withoutExisting, steeredMessage], inserted: false }
 }
 
 async function loadCodexDurableState(
@@ -513,12 +559,15 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   const [showSlashCommands, setShowSlashCommands] = useState(false)
   const [revertMessageID, setRevertMessageID] = useState<string | null>(null)
   const [forkingMessageId, setForkingMessageId] = useState<string | null>(null)
+  const [steeringMessageId, setSteeringMessageId] = useState<string | null>(null)
+  const steeringGuardRef = useRef(false)
   const revertDiffRef = useRef<string | null>(null)
 
   // Runtime capabilities for undo/redo gating
   const [sessionCapabilities, setSessionCapabilities] = useState<{
     supportsUndo: boolean
     supportsRedo: boolean
+    supportsSteer?: boolean
   } | null>(null)
 
   const messagesRef = useRef(messages)
@@ -597,18 +646,20 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     setQueuedMessages((prev) => {
       const sameLength = prev.length === persistedFollowUpMessages.length
       const sameContent =
-        sameLength &&
-        prev.every((entry, index) => entry.content === persistedFollowUpMessages[index])
+        sameLength && prev.every((entry, index) => entry.content === persistedFollowUpMessages[index])
+      if (sameContent) return prev
 
-      if (sameContent) {
-        return prev
-      }
-
-      return persistedFollowUpMessages.map((content, index) => ({
-        id: prev[index]?.content === content ? prev[index].id : crypto.randomUUID(),
-        content,
-        timestamp: prev[index]?.content === content ? prev[index].timestamp : Date.now() + index
-      }))
+      const matched = new Set<number>()
+      return persistedFollowUpMessages.map((content, index) => {
+        const existingIndex = prev.findIndex((p, i) => p.content === content && !matched.has(i))
+        if (existingIndex >= 0) matched.add(existingIndex)
+        const existing = existingIndex >= 0 ? prev[existingIndex] : undefined
+        return {
+          id: existing?.id ?? crypto.randomUUID(),
+          content,
+          timestamp: existing?.timestamp ?? Date.now() + index
+        }
+      })
     })
   }, [persistedFollowUpMessages])
 
@@ -633,6 +684,9 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   // Check if this is an orphaned (read-only) session
   const isOrphanedSession = useSessionStore((state) => state.orphanedSessions.has(sessionId))
   const sessionAgentSdk = sessionRecord?.agent_sdk ?? 'opencode'
+  // Steer capability: available when backend supports it AND a turn is actively streaming
+  // Falls back to checking sessionAgentSdk when capabilities haven't loaded yet (race condition)
+  const canSteer = (sessionCapabilities?.supportsSteer ?? sessionAgentSdk === 'codex') && isStreaming
   const globalModel = useSettingsStore((state) => resolveModelForSdk(sessionAgentSdk, state))
   const effectiveModel: SelectedModel | null =
     sessionRecord?.model_provider_id && sessionRecord.model_id
@@ -3855,6 +3909,59 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     [setMessages]
   )
 
+  const handleSteerMessage = useCallback(
+    async (messageId: string, content: string) => {
+      if (!worktreePath || !opencodeSessionId || steeringGuardRef.current) return
+      steeringGuardRef.current = true
+      setSteeringMessageId(messageId)
+      try {
+        const result = await window.opencodeOps?.steer?.(worktreePath, opencodeSessionId, content)
+        if (result?.success) {
+          setQueuedMessages((prev) => prev.filter((msg) => msg.id !== messageId))
+          const anchorAssistantMessageId = codexStreamingMessageIdRef.current
+          const insertedMessageId = result.insertedMessageId
+          const steeredMessage = createLocalMessage('user', content, {
+            id: insertedMessageId,
+            steered: true
+          })
+          const insertion = insertSteeredMessageAtBoundary(messagesRef.current, steeredMessage, {
+            anchorAssistantMessageId,
+            turnId: result.turnId
+          })
+
+          setMessages(insertion.nextMessages)
+
+          if (result.nextAssistantMessageId) {
+            codexStreamingMessageIdRef.current = result.nextAssistantMessageId
+          }
+
+          if (!insertion.inserted) {
+            void refreshMessagesFromOpenCode()
+          }
+
+          // Remove the steered message from the follow-up queue by content
+          const currentFollowUps = useSessionStore.getState().pendingFollowUpMessages.get(sessionId) ?? []
+          const indexToRemove = currentFollowUps.indexOf(content)
+          if (indexToRemove >= 0) {
+            const updatedFollowUps = [
+              ...currentFollowUps.slice(0, indexToRemove),
+              ...currentFollowUps.slice(indexToRemove + 1)
+            ]
+            useSessionStore.getState().setPendingFollowUpMessages(sessionId, updatedFollowUps)
+          }
+        } else {
+          console.warn('Steer failed', { messageId, error: result?.error })
+        }
+      } catch (error) {
+        console.warn('Steer error', { messageId, error })
+      } finally {
+        steeringGuardRef.current = false
+        setSteeringMessageId(null)
+      }
+    },
+    [opencodeSessionId, refreshMessagesFromOpenCode, sessionId, worktreePath]
+  )
+
   const handleForkFromAssistantMessage = useCallback(
     async (message: OpenCodeMessage) => {
       if (forkingMessageId) return
@@ -4081,8 +4188,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
           // Add user message to UI immediately (before response)
           // Include attachment XML so cards render instantly
-          const diffComments = useDiffCommentStore.getState().getAttachedComments()
-          const askDisplayContent = buildDisplayContent(attachments, prefixedQuestion, diffComments)
+          const askDisplayContent = buildDisplayContent(attachments, prefixedQuestion)
           setMessages((prev) => [...prev, createLocalMessage('user', askDisplayContent)])
 
           // Mark that a new prompt is in flight
@@ -4095,10 +4201,9 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
           }
 
           // Build message parts (support file attachments if any)
-          const parts = buildMessageParts(attachments, prefixedQuestion, diffComments)
+          const parts = buildMessageParts(attachments, prefixedQuestion)
           setAttachments([])
           usePRReviewStore.getState().clearAttachments()
-          useDiffCommentStore.getState().clearAttached()
 
           try {
             const result = await window.opencodeOps.prompt(
@@ -4208,11 +4313,9 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
               )
               .join('\n\n') + '\n\n'
         }
-        const diffComments = useDiffCommentStore.getState().getAttachedComments()
         const optimisticContent = buildDisplayContent(
           attachments,
-          optimisticPrContext + optimisticModePrefix + trimmedValue,
-          diffComments
+          optimisticPrContext + optimisticModePrefix + trimmedValue
         )
 
         setMessages((prev) => {
@@ -4305,7 +4408,6 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
               lastSentPromptRef.current = trimmedValue
               setAttachments([])
               usePRReviewStore.getState().clearAttachments()
-              useDiffCommentStore.getState().clearAttached()
               const result = await window.opencodeOps.command(
                 worktreePath,
                 opencodeSessionId,
@@ -4340,10 +4442,9 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
               }
               const promptMessage = prContext + modePrefix + trimmedValue
               lastSentPromptRef.current = promptMessage
-              const parts = buildMessageParts(attachments, promptMessage, diffComments)
+              const parts = buildMessageParts(attachments, promptMessage)
               setAttachments([])
               usePRReviewStore.getState().clearAttachments()
-              useDiffCommentStore.getState().clearAttached()
               const result = await window.opencodeOps.prompt(
                 worktreePath,
                 opencodeSessionId,
@@ -4382,10 +4483,9 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
             // of the user message (the SDK often re-emits the prompt without a
             // role field, making it indistinguishable from assistant text).
             lastSentPromptRef.current = promptMessage
-            const parts = buildMessageParts(attachments, promptMessage, diffComments)
+            const parts = buildMessageParts(attachments, promptMessage)
             setAttachments([])
             usePRReviewStore.getState().clearAttachments()
-            useDiffCommentStore.getState().clearAttached()
             const result = await window.opencodeOps.prompt(
               worktreePath,
               opencodeSessionId,
@@ -4404,7 +4504,6 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
           // No OpenCode connection - show placeholder
           setAttachments([])
           usePRReviewStore.getState().clearAttachments()
-          useDiffCommentStore.getState().clearAttached()
           console.warn('No OpenCode connection, showing placeholder response')
           setTimeout(() => {
             const placeholderContent =
@@ -5538,6 +5637,9 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
               retrySecondsRemaining={retrySecondsRemaining}
               hasVisibleWritingCursor={hasVisibleWritingCursor}
               queuedMessages={queuedMessages}
+              canSteer={canSteer}
+              onSteerMessage={handleSteerMessage}
+              steeringMessageId={steeringMessageId}
               completionEntry={completionEntry}
               scrollElement={scrollElement}
               lockViewport={sessionAgentSdk === 'codex' && showScrollFab}
@@ -5634,8 +5736,6 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
           />
           {/* PR review comment attachments — above the input container */}
           <PrCommentAttachments />
-          {/* Diff comment attachments — above the input container */}
-          <DiffCommentAttachments />
           {/* Ticket attachments — above the input container */}
           <TicketAttachments attachments={attachments} onRemove={handleRemoveAttachment} />
           <div
