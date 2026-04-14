@@ -480,6 +480,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
       id: string
       content: string
       timestamp: number
+      steered?: boolean
     }>
   >([])
   const [attachments, setAttachments] = useState<Attachment[]>([])
@@ -517,6 +518,7 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   const [sessionCapabilities, setSessionCapabilities] = useState<{
     supportsUndo: boolean
     supportsRedo: boolean
+    supportsSteer?: boolean
   } | null>(null)
 
   const messagesRef = useRef(messages)
@@ -568,6 +570,9 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
   const [sessionErrorStderr, setSessionErrorStderr] = useState<string | null>(null)
   const [retryTickMs, setRetryTickMs] = useState<number>(Date.now())
   const [planSavedAsTicket, setPlanSavedAsTicket] = useState(false)
+
+  // Steer capability: available when backend supports it AND a turn is actively streaming
+  const canSteer = sessionCapabilities?.supportsSteer === true && isStreaming
 
   // Prompt history key: works for both worktree and connection sessions
   const historyKey = worktreeId ?? connectionId
@@ -3853,6 +3858,26 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
     [setMessages]
   )
 
+  const handleSteerMessage = useCallback(
+    async (messageId: string, content: string) => {
+      if (!worktreePath || !opencodeSessionId) return
+      try {
+        const result = await window.opencodeOps?.steer?.(worktreePath, opencodeSessionId, content)
+        if (result?.success) {
+          setQueuedMessages((prev) =>
+            prev.map((msg) => (msg.id === messageId ? { ...msg, steered: true } : msg))
+          )
+          useSessionStore.getState().consumeFollowUpMessage(sessionId)
+        } else {
+          console.warn('Steer failed', { messageId, error: result?.error })
+        }
+      } catch (error) {
+        console.warn('Steer error', { messageId, error })
+      }
+    },
+    [worktreePath, opencodeSessionId, sessionId]
+  )
+
   const handleForkFromAssistantMessage = useCallback(
     async (message: OpenCodeMessage) => {
       if (forkingMessageId) return
@@ -5528,6 +5553,8 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
               retrySecondsRemaining={retrySecondsRemaining}
               hasVisibleWritingCursor={hasVisibleWritingCursor}
               queuedMessages={queuedMessages}
+              canSteer={canSteer}
+              onSteerMessage={handleSteerMessage}
               completionEntry={completionEntry}
               scrollElement={scrollElement}
               lockViewport={sessionAgentSdk === 'codex' && showScrollFab}
