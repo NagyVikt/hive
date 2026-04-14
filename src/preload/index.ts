@@ -1236,6 +1236,18 @@ const opencodeOps = {
   ): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke('opencode:abort', worktreePath, opencodeSessionId),
 
+  // Steer — inject input into a running Codex turn
+  steer: (
+    worktreePath: string,
+    opencodeSessionId: string,
+    message: string
+  ): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('opencode:steer', {
+      worktreePath,
+      sessionId: opencodeSessionId,
+      message
+    }),
+
   // Disconnect session (may kill server if last session for worktree)
   disconnect: (
     worktreePath: string,
