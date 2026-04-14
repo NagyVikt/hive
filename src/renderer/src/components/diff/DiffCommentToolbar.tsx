@@ -145,7 +145,6 @@ export function DiffCommentToolbar({
         variant="ghost"
         size="icon"
         className="h-6 w-6"
-        disabled={sortedComments.length === 0}
         onClick={handlePrev}
         title="Previous comment"
       >
@@ -155,7 +154,6 @@ export function DiffCommentToolbar({
         variant="ghost"
         size="icon"
         className="h-6 w-6"
-        disabled={sortedComments.length === 0}
         onClick={handleNext}
         title="Next comment"
       >

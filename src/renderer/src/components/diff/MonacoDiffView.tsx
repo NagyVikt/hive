@@ -400,7 +400,7 @@ export default function MonacoDiffView({
             filePath={filePath}
           />
         )}
-        {!prReviewWorktreeId && worktreeId && (
+        {!prReviewWorktreeId && originalContent !== null && modifiedContent !== null && worktreeId && (
           <DiffCommentToolbar worktreeId={worktreeId} />
         )}
       </div>
