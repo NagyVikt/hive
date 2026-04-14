@@ -582,6 +582,10 @@ export function DiffCommentGutter({
   // Jump-to-comment subscription
   // ---------------------------------------------------------------------------
 
+  const flashDecoRef = useRef<ReturnType<
+    NonNullable<typeof modifiedEditor>['createDecorationsCollection']
+  > | null>(null)
+
   useEffect(() => {
     let flashTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -591,6 +595,9 @@ export function DiffCommentGutter({
 
       const targetLine = comment.line_end ?? comment.line_start
       modifiedEditor.revealLineInCenter(targetLine)
+
+      // Clear previous flash decoration immediately to prevent accumulation
+      flashDecoRef.current?.clear()
 
       // Flash decoration for 1.5s
       const flashDeco = modifiedEditor.createDecorationsCollection([
@@ -604,6 +611,7 @@ export function DiffCommentGutter({
           options: { isWholeLine: true, className: 'diff-comment-jump-flash' }
         }
       ])
+      flashDecoRef.current = flashDeco
       if (flashTimer) clearTimeout(flashTimer)
       flashTimer = setTimeout(() => flashDeco.clear(), 1500)
     })
@@ -611,6 +619,7 @@ export function DiffCommentGutter({
     return () => {
       unsub()
       if (flashTimer) clearTimeout(flashTimer)
+      flashDecoRef.current?.clear()
     }
   }, [fileComments, modifiedEditor])
 
