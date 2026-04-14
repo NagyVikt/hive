@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { useWorktreeStore } from './useWorktreeStore'
+import { type ReanchorResult } from '@/lib/diff-comment-anchor'
 
 // ---------------------------------------------------------------------------
 // Local type aliases — DiffComment is global (preload/index.d.ts),
@@ -86,6 +87,9 @@ interface DiffCommentStoreState {
   update: (id: string, data: DiffCommentUpdate) => Promise<DiffComment | null>
   remove: (id: string) => Promise<boolean>
   clearAll: (worktreeId: string) => Promise<void>
+
+  // Synchronous local-only reanchor (no DB write)
+  updateLocalLines: (worktreeId: string, updates: ReanchorResult[]) => void
 
   // Attach flow
   attachAllToChat: (worktreeId: string) => void
@@ -264,6 +268,36 @@ export const useDiffCommentStore = create<DiffCommentStoreState>((set, get) => (
         return { errorByWorktree }
       })
     }
+  },
+
+  updateLocalLines: (worktreeId, updates) => {
+    if (updates.length === 0) return
+
+    const updateMap = new Map(updates.map((u) => [u.id, u]))
+
+    set((s) => {
+      const bucket = s.comments.get(worktreeId)
+      if (!bucket) return s
+
+      let changed = false
+      const newBucket = bucket.map((c) => {
+        const upd = updateMap.get(c.id)
+        if (!upd) return c
+        if (
+          c.line_start === upd.line_start &&
+          c.line_end === upd.line_end &&
+          c.is_outdated === upd.is_outdated
+        )
+          return c
+        changed = true
+        return { ...c, line_start: upd.line_start, line_end: upd.line_end, is_outdated: upd.is_outdated }
+      })
+
+      if (!changed) return s // critical: prevents unnecessary re-renders
+      const comments = new Map(s.comments)
+      comments.set(worktreeId, newBucket)
+      return { comments }
+    })
   },
 
   // ---------------------------------------------------------------------------
