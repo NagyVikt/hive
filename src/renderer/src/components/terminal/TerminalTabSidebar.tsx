@@ -1,10 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useTerminalTabStore } from '@/stores/useTerminalTabStore'
+import type { TerminalTab } from '@/stores/useTerminalTabStore'
 import { useTerminalStore } from '@/stores/useTerminalStore'
 import { useShallow } from 'zustand/react/shallow'
 import { TerminalTabEntry } from './TerminalTabEntry'
 import { TerminalCloseConfirmDialog } from './TerminalCloseConfirmDialog'
+
+/**
+ * Stable empty array to avoid infinite re-render loops in useShallow selectors.
+ *
+ * `useShallow` uses `Object.is` to compare each property of the selector result.
+ * An inline `?? []` creates a new array reference on every selector invocation,
+ * which `Object.is([]_prev, []_next)` considers different. During React's commit
+ * phase, `useSyncExternalStore` re-runs the selector for tearing detection — if
+ * the result is always "different" (due to unstable `[]`), it forces a synchronous
+ * re-render, which triggers another tearing check, creating an infinite loop.
+ */
+const EMPTY_TABS: TerminalTab[] = []
 
 interface TerminalTabSidebarProps {
   worktreeId: string
@@ -13,7 +26,7 @@ interface TerminalTabSidebarProps {
 export function TerminalTabSidebar({ worktreeId }: TerminalTabSidebarProps): React.JSX.Element {
   const { tabs, activeTabId } = useTerminalTabStore(
     useShallow((s) => ({
-      tabs: s.tabsByWorktree.get(worktreeId) ?? [],
+      tabs: s.tabsByWorktree.get(worktreeId) ?? EMPTY_TABS,
       activeTabId: s.activeTabByWorktree.get(worktreeId)
     }))
   )
