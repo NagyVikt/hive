@@ -2,7 +2,7 @@ import { app } from 'electron'
 import { execFileSync } from 'child_process'
 import { existsSync } from 'fs'
 import { getLogDir } from './logger'
-import { resolveOpenCodeLaunchSpec } from './opencode-binary-resolver'
+import type { OpenCodeLaunchSpec } from './opencode-binary-resolver'
 
 export interface AgentSdkDetection {
   opencode: boolean
@@ -16,7 +16,7 @@ export interface AppPaths {
   logs: string
 }
 
-export function detectAgentSdks(): AgentSdkDetection {
+export function detectAgentSdks(openCodeLaunchSpec: OpenCodeLaunchSpec | null): AgentSdkDetection {
   const whichCmd = process.platform === 'win32' ? 'where' : 'which'
   const check = (binary: string): boolean => {
     try {
@@ -32,7 +32,7 @@ export function detectAgentSdks(): AgentSdkDetection {
     }
   }
   return {
-    opencode: resolveOpenCodeLaunchSpec() !== null,
+    opencode: openCodeLaunchSpec !== null,
     claude: check('claude'),
     codex: check('codex')
   }
