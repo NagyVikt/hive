@@ -1598,6 +1598,37 @@ export const useSessionStore = create<SessionState>()(
           const session = get().boardAssistantByProject.get(projectId)
           if (!session) return { success: false, error: 'No board assistant session found' }
 
+          // Clean up the runtime BEFORE updating store state.
+          // We must do this here rather than relying on component unmount,
+          // because the BoardAssistantView may not be mounted (e.g. user
+          // switched to a file tab and then closed the board assistant tab).
+          const { useBoardChatStore } = await import('./useBoardChatStore')
+          const chatState = useBoardChatStore.getState()
+          if (chatState.sessionId === session.id) {
+            const { useQuestionStore } = await import('./useQuestionStore')
+            const { usePermissionStore } = await import('./usePermissionStore')
+            const { useCommandApprovalStore } = await import('./useCommandApprovalStore')
+
+            useQuestionStore.getState().clearSession(session.id)
+            usePermissionStore.getState().clearSession(session.id)
+            useCommandApprovalStore.getState().clearSession(session.id)
+
+            if (chatState.runtimePath && chatState.opencodeSessionId) {
+              try {
+                await window.opencodeOps.abort(chatState.runtimePath, chatState.opencodeSessionId)
+              } catch {
+                // Best-effort cleanup
+              }
+              try {
+                await window.opencodeOps.disconnect(chatState.runtimePath, chatState.opencodeSessionId)
+              } catch {
+                // Best-effort cleanup
+              }
+            }
+
+            useBoardChatStore.getState().resetState()
+          }
+
           await window.db.session.update(session.id, {
             status: 'completed',
             completed_at: new Date().toISOString()
@@ -1607,13 +1638,26 @@ export const useSessionStore = create<SessionState>()(
             const map = new Map(state.boardAssistantByProject)
             map.delete(projectId)
 
-            // If this was the active board assistant, clear focus
+            // If this was the active board assistant, clear focus and
+            // restore the previously active session for this worktree
             const clearFocus = state.activeBoardAssistantProjectId === projectId
 
-            return {
-              boardAssistantByProject: map,
-              ...(clearFocus ? { activeBoardAssistantProjectId: null } : {})
+            if (clearFocus) {
+              const worktreeId = state.activeWorktreeId
+              const connectionId = state.activeConnectionId
+              const restoredSessionId =
+                (worktreeId ? state.activeSessionByWorktree[worktreeId] : null) ??
+                (connectionId ? state.activeSessionByConnection[connectionId] : null) ??
+                null
+
+              return {
+                boardAssistantByProject: map,
+                activeBoardAssistantProjectId: null,
+                activeSessionId: restoredSessionId
+              }
             }
+
+            return { boardAssistantByProject: map }
           })
 
           return { success: true }

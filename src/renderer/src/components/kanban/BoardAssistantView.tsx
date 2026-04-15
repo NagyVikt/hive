@@ -265,6 +265,9 @@ async function ensureRuntimeSession(scope: BoardChatScope, targetProjectId: stri
   const connectResult = await window.opencodeOps.connect(runtimePath, session.id)
   if (!connectResult.success || !connectResult.sessionId) {
     await window.db.session.delete(session.id).catch(() => {})
+    // Re-sync store so the stale entry is removed and the tab disappears
+    const { useSessionStore } = await import('@/stores/useSessionStore')
+    void useSessionStore.getState().loadBoardAssistantSession(targetProjectId)
     return null
   }
 
@@ -291,6 +294,10 @@ async function cleanupBoardChatRuntime(): Promise<void> {
   const opencodeSessionId = state.opencodeSessionId
   const runtimePath = state.runtimePath
 
+  // If the store has already been reset (e.g. closeBoardAssistantSession
+  // already cleaned up), there is nothing left to do.
+  if (!sessionId && !opencodeSessionId && !runtimePath) return
+
   if (sessionId) {
     useQuestionStore.getState().clearSession(sessionId)
     usePermissionStore.getState().clearSession(sessionId)
@@ -306,14 +313,6 @@ async function cleanupBoardChatRuntime(): Promise<void> {
 
     try {
       await window.opencodeOps.disconnect(runtimePath, opencodeSessionId)
-    } catch {
-      // Best effort cleanup.
-    }
-  }
-
-  if (sessionId) {
-    try {
-      await window.db.session.delete(sessionId)
     } catch {
       // Best effort cleanup.
     }
