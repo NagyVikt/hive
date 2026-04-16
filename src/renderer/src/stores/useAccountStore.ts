@@ -20,8 +20,9 @@ export const useAccountStore = create<AccountState>()((set) => ({
         set({ openaiEmail: email })
       }
     } catch {
-      // Swallow errors; IPC failures leave the slot at whatever it currently is,
-      // and the handler itself returns null for any read failure.
+      // Reset the slot to null on IPC failure so a revoked or missing credential
+      // doesn't leave a stale email visible. The handler already returns null for
+      // any read failure, so this catch mostly handles unexpected IPC errors.
       if (provider === 'anthropic') set({ anthropicEmail: null })
       else set({ openaiEmail: null })
     }
