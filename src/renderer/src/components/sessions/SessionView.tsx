@@ -155,12 +155,14 @@ export const BUILT_IN_SLASH_COMMANDS: SlashCommandInfo[] = [
 // Types for OpenCode SDK integration
 export interface OpenCodeMessage {
   id: string
-  role: 'user' | 'assistant' | 'system'
+  role: 'user' | 'assistant' | 'system' | 'bash'
   content: string
   timestamp: string
   /** Interleaved parts for assistant messages with tool calls */
   parts?: StreamingPart[]
   steered?: boolean
+  bashStatus?: 'running' | 'exited' | 'killed' | 'truncated' | 'error'
+  bashOutput?: string
 }
 
 export interface SessionViewState {
