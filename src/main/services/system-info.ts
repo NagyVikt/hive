@@ -2,6 +2,8 @@ import { app } from 'electron'
 import { execFileSync } from 'child_process'
 import { existsSync } from 'fs'
 import { getLogDir } from './logger'
+import { resolveCodexBinaryPath, supportsCodexAppServer } from './codex-binary-resolver'
+import { resolveOpenCodeLaunchSpec } from './opencode-binary-resolver'
 import type { OpenCodeLaunchSpec } from './opencode-binary-resolver'
 
 export interface AgentSdkDetection {
@@ -31,10 +33,13 @@ export function detectAgentSdks(openCodeLaunchSpec: OpenCodeLaunchSpec | null): 
       return false
     }
   }
+
+  const resolvedCodexBinary = resolveCodexBinaryPath()
+
   return {
     opencode: openCodeLaunchSpec !== null,
     claude: check('claude'),
-    codex: check('codex')
+    codex: !!resolvedCodexBinary && supportsCodexAppServer(resolvedCodexBinary)
   }
 }
 
