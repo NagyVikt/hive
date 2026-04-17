@@ -1694,7 +1694,12 @@ function PlanReviewModeContent({
         // Narrow to const so TS narrowing survives across the background IIFE closure.
         const connectionPath = worktreePath
         const sessionStore = useSessionStore.getState()
-        const sessionResult = await sessionStore.createConnectionSession(sessionRecord.connection_id)
+        const sessionResult = await sessionStore.createConnectionSession(
+          sessionRecord.connection_id,
+          undefined,
+          undefined,
+          { autoFocus: false }
+        )
         if (!sessionResult.success || !sessionResult.session) {
           toast.error(sessionResult.error ?? 'Failed to create supercharge session')
           return
