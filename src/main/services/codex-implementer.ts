@@ -18,6 +18,7 @@ import { logCodexLifecycleEvent } from './codex-debug-logger'
 import { generateCodexSessionTitle } from './codex-session-title'
 import type { DatabaseService } from '../db/database'
 import type { SessionMessageCreate } from '../db/types'
+import { notificationService } from './notification-service'
 import { autoRenameWorktreeBranch } from './git-service'
 import {
   normalizeCodexToolName,
@@ -389,6 +390,7 @@ export class CodexImplementer implements AgentSdkImplementer {
           event.itemId
         )
       })
+      this.maybeNotifyUserFeedbackNeeded(targetSession.hiveSessionId, 'permission')
       return
     }
 
@@ -414,6 +416,7 @@ export class CodexImplementer implements AgentSdkImplementer {
           questions
         }
       })
+      this.maybeNotifyUserFeedbackNeeded(targetSession.hiveSessionId, 'question')
     }
   }
 
@@ -1695,6 +1698,53 @@ export class CodexImplementer implements AgentSdkImplementer {
       this.mainWindow.webContents.send(channel, data)
     } else {
       log.debug('sendToRenderer: no window')
+    }
+  }
+
+  /**
+   * Show a native notification when a session is blocked waiting for user
+   * feedback (question or command/file approval) while the app window is
+   * unfocused.
+   */
+  private maybeNotifyUserFeedbackNeeded(
+    hiveSessionId: string,
+    kind: 'question' | 'permission'
+  ): void {
+    try {
+      if (!this.mainWindow || this.mainWindow.isDestroyed() || this.mainWindow.isFocused()) {
+        return
+      }
+
+      if (!this.dbService) return
+
+      const session = this.dbService.getSession(hiveSessionId)
+      if (!session) {
+        log.warn('Cannot notify: session not found', { hiveSessionId })
+        return
+      }
+
+      const project = this.dbService.getProject(session.project_id)
+      if (!project) {
+        log.warn('Cannot notify: project not found', { projectId: session.project_id })
+        return
+      }
+
+      notificationService.showPendingUserFeedback(
+        {
+          projectName: project.name,
+          sessionName: session.name || 'Untitled',
+          projectId: session.project_id,
+          worktreeId: session.worktree_id || '',
+          sessionId: hiveSessionId
+        },
+        kind
+      )
+    } catch (error) {
+      log.warn('Failed to show pending user feedback notification', {
+        hiveSessionId,
+        error,
+        kind
+      })
     }
   }
 
