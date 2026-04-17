@@ -42,9 +42,22 @@ export function usePRStackTopOffset(): number {
 
     const stack = document.querySelector(PR_STACK_SELECTOR)
     if (!(stack instanceof HTMLElement)) {
-      // Stack hasn't mounted yet (or was unmounted mid-render). Keep the
-      // current value; the next notificationCount change will retry.
-      return
+      // Stack hasn't committed to the DOM yet for this render pass. Retry
+      // once on the next animation frame to close the race without relying on
+      // the next notificationCount change to trigger a re-measure.
+      let observer: ResizeObserver | null = null
+      const raf = requestAnimationFrame(() => {
+        const retryStack = document.querySelector(PR_STACK_SELECTOR)
+        if (!(retryStack instanceof HTMLElement)) return
+        setStackHeightPx(retryStack.offsetHeight)
+        if (typeof ResizeObserver === 'undefined') return
+        observer = new ResizeObserver(() => setStackHeightPx(retryStack.offsetHeight))
+        observer.observe(retryStack)
+      })
+      return () => {
+        cancelAnimationFrame(raf)
+        observer?.disconnect()
+      }
     }
 
     const measure = (): void => {

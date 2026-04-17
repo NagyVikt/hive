@@ -162,4 +162,62 @@ describe('usePRStackTopOffset', () => {
     // Should still do the initial measurement.
     expect(result.current).toBe(16 + 64 + 8)
   })
+
+  it('retries measurement on the next animation frame when the stack is not yet in the DOM', async () => {
+    // Override the synchronous rAF mock (from test/setup.ts) with a deferred
+    // queue so we can observe the race: the hook's effect runs and schedules
+    // a raf while the stack is missing, then the stack mounts, then the raf
+    // fires and finds it.
+    const pending: Array<FrameRequestCallback> = []
+    let nextId = 1
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      ((cb: FrameRequestCallback) => {
+        pending.push(cb)
+        return nextId++
+      }) as typeof requestAnimationFrame
+    )
+    vi.stubGlobal('cancelAnimationFrame', vi.fn())
+
+    // Simulate the race: store has a notification but the stack element has
+    // not committed to the DOM yet for this render pass.
+    setPRNotifications(1)
+    const { result } = renderHook(() => usePRStackTopOffset())
+    // Without the retry, the hook would stay at baseline forever.
+    expect(result.current).toBe(16)
+
+    // Stack mounts a tick later (as it would after the sibling's commit).
+    mountFakeStack(80)
+
+    // Fire the pending rafs. The hook's raf runs, measures, and commits the
+    // state update. Wrap in act so the resulting re-render flushes.
+    await act(async () => {
+      const drained = pending.splice(0, pending.length)
+      drained.forEach((cb) => cb(performance.now()))
+    })
+
+    expect(result.current).toBe(16 + 80 + 8)
+  })
+
+  it('cancels the pending animation frame when the hook unmounts before the retry fires', () => {
+    // Same deferred-raf setup so the raf stays queued across unmount.
+    const pending: Array<FrameRequestCallback> = []
+    let nextId = 1
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      ((cb: FrameRequestCallback) => {
+        pending.push(cb)
+        return nextId++
+      }) as typeof requestAnimationFrame
+    )
+    const cancelSpy = vi.fn()
+    vi.stubGlobal('cancelAnimationFrame', cancelSpy)
+
+    setPRNotifications(1)
+    const { unmount } = renderHook(() => usePRStackTopOffset())
+    // No stack is in the DOM, so the null branch scheduled a raf.
+    expect(pending.length).toBe(1)
+    expect(() => unmount()).not.toThrow()
+    expect(cancelSpy).toHaveBeenCalledWith(1)
+  })
 })
