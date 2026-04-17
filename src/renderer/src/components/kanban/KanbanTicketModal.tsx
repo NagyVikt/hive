@@ -1546,11 +1546,15 @@ function PlanReviewModeContent({
         sessionStore.setPendingMessage(result.session.id, handoffPrompt)
         notifyKanbanSessionSync(sessionId, { type: 'supercharge', newSessionId: result.session.id })
 
-        // In sticky-tab mode, stay on the board; otherwise navigate to the new session
+        // In sticky-tab mode, stay on the board; otherwise navigate to the new session.
+        // setActiveConnectionSession requires activeConnectionId to be set — which
+        // it isn't when the modal is opened from the kanban board — so we switch
+        // the active connection first, then nail down the session within it.
         const { BOARD_TAB_ID } = await import('@/stores/useSessionStore')
         if (useSettingsStore.getState().boardMode === 'sticky-tab') {
           sessionStore.setActiveSession(BOARD_TAB_ID)
         } else {
+          sessionStore.setActiveConnection(sessionRecord.connection_id)
           sessionStore.setActiveConnectionSession(result.session.id)
         }
 
@@ -1565,8 +1569,15 @@ function PlanReviewModeContent({
         return
       }
 
+      // Worktree-session branch. After the connection branch returns, TS can't
+      // narrow worktree_id from hasWorkingContext alone — use a local const
+      // rather than a non-null assertion so refactors of the branch above don't
+      // silently break this one.
+      const worktreeId = sessionRecord?.worktree_id
+      if (!worktreeId) return
+
       const sessionStore = useSessionStore.getState()
-      const result = await sessionStore.createSession(ticket.worktree_id!, ticket.project_id)
+      const result = await sessionStore.createSession(worktreeId, ticket.project_id)
       if (!result.success || !result.session) {
         toast.error(result.error ?? 'Failed to create handoff session')
         return
@@ -1725,8 +1736,15 @@ function PlanReviewModeContent({
         return
       }
 
+      // Worktree-session branch. After the connection branch returns, TS can't
+      // narrow worktree_id from hasWorkingContext alone — use a local const
+      // rather than a non-null assertion so refactors of the branch above don't
+      // silently break this one.
+      const worktreeId = sessionRecord?.worktree_id
+      if (!worktreeId) return
+
       // Look up worktree and project for duplication
-      const worktree = findWorktreeById(ticket.worktree_id!)
+      const worktree = findWorktreeById(worktreeId)
       if (!worktree) {
         toast.error('Could not find worktree')
         return
