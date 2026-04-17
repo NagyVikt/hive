@@ -335,7 +335,9 @@ export function Header(): React.JSX.Element {
                 <Coffee className="h-4 w-4" />
               </span>
             </TooltipTrigger>
-            <TooltipContent>Prevents your computer from sleeping while a session is running</TooltipContent>
+            <TooltipContent side="bottom" sideOffset={8}>
+              Prevents your computer from sleeping while a session is running
+            </TooltipContent>
           </Tooltip>
         )}
         {vimModeEnabled && (
