@@ -74,6 +74,61 @@ class NotificationService {
     }
   }
 
+  /**
+   * Show a native notification when an AI session is blocked waiting for user
+   * feedback (a question to answer or a permission to grant). Unlike
+   * `showSessionComplete`, this is NOT suppressed by queued-message state —
+   * a blocking feedback request always needs the user's attention.
+   */
+  showPendingUserFeedback(
+    data: SessionNotificationData,
+    kind: 'question' | 'permission'
+  ): void {
+    if (!Notification.isSupported()) {
+      log.warn('Notifications not supported on this platform')
+      return
+    }
+
+    const body =
+      kind === 'question'
+        ? `"${data.sessionName}" needs your answer`
+        : `"${data.sessionName}" needs your permission`
+
+    log.info('Showing pending user feedback notification', {
+      projectName: data.projectName,
+      sessionName: data.sessionName,
+      kind
+    })
+
+    const notification = new Notification({
+      title: data.projectName,
+      body,
+      silent: false
+    })
+
+    notification.on('click', () => {
+      if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        this.mainWindow.show()
+        this.mainWindow.focus()
+        this.mainWindow.webContents.send('notification:navigate', {
+          projectId: data.projectId,
+          worktreeId: data.worktreeId,
+          sessionId: data.sessionId
+        })
+      }
+    })
+
+    notification.show()
+
+    // Increment dock/taskbar badge (same scheme as showSessionComplete)
+    this.unreadCount++
+    if (process.platform === 'darwin') {
+      app.dock?.setBadge(String(this.unreadCount))
+    } else {
+      app.setBadgeCount(this.unreadCount)
+    }
+  }
+
   // Track which sessions currently have queued follow-up messages so that
   // `showSessionComplete` can suppress notifications while the session is
   // about to continue with the next queued message.
