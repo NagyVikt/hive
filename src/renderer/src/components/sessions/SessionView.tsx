@@ -4783,7 +4783,9 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
       }
       const setModePromise = sessionStore.setSessionMode(result.session.id, 'build')
       sessionStore.setPendingMessage(result.session.id, handoffPrompt)
-      notifyKanbanSessionSync(sessionId, { type: 'supercharge', newSessionId: result.session.id })
+      await useKanbanStore
+        .getState()
+        .relinkTicketsForHandoff(sessionId, result.session.id)
       sessionStore.setActiveConnectionSession(result.session.id)
       await setModePromise
       return
@@ -4813,7 +4815,9 @@ export function SessionView({ sessionId }: SessionViewProps): React.JSX.Element 
 
     const setModePromise = sessionStore.setSessionMode(result.session.id, 'build')
     sessionStore.setPendingMessage(result.session.id, handoffPrompt)
-    notifyKanbanSessionSync(sessionId, { type: 'supercharge', newSessionId: result.session.id })
+    await useKanbanStore
+      .getState()
+      .relinkTicketsForHandoff(sessionId, result.session.id)
     sessionStore.setActiveSession(result.session.id)
     await setModePromise
   }, [
