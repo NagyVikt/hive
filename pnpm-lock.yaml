@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':
-        specifier: ^0.2.113
-        version: 0.2.113(zod@3.25.76)
+        specifier: ^0.2.114
+        version: 0.2.114(zod@3.25.76)
       '@codemirror/commands':
         specifier: ^6.10.3
         version: 6.10.3
@@ -263,7 +263,7 @@ importers:
         version: 3.8.1
       shadcn:
         specifier: ^3.8.2
-        version: 3.8.2(@types/node@22.19.8)(hono@4.12.12)(typescript@5.9.3)
+        version: 3.8.2(@types/node@22.19.8)(hono@4.12.14)(typescript@5.9.3)
       tailwind-merge:
         specifier: ^2.6.0
         version: 2.6.1
@@ -302,48 +302,48 @@ packages:
     resolution: {integrity: sha512-9q/yCljni37pkMr4sPrI3G4jqdIk074+iukc5aFJl7kmDCCsiJrbZ6zKxnES1Gwg+i9RcDZwvktl23puGslmvA==}
     hasBin: true
 
-  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.2.113':
-    resolution: {integrity: sha512-FymNWXlee9xID6AKU/aWjeIzlMTL7LAtVVL5kg2j3MYm7o8lfTY996cEN1ulWXeF7i3pVbzYtIzE+avhVDauPA==}
+  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.2.114':
+    resolution: {integrity: sha512-0/6LWrNilWpmiX6Xrj5plsBmCrCdKGERgAlKUZQEJZplnfuweFAJu7WXZB4KBaUpGlPO91zB/yqDh6kp5aZFbA==}
     cpu: [arm64]
     os: [darwin]
 
-  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.2.113':
-    resolution: {integrity: sha512-pST/cJunx8mup8RxnuCTQNmwyli4/LcvmLVPaZgVSYchLQlBCE26bQKZwdoeMc/+F7Gm/eBt8Yz53GTTqV3TMA==}
+  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.2.114':
+    resolution: {integrity: sha512-sOHxq1rEO/KZg2iEZILTPn62lMRRMPqtxKx41uGLi3xjVDrAej6Ury9dDZjYBKkK9n4kBylXV0Oom2CZ14dDYw==}
     cpu: [x64]
     os: [darwin]
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.2.113':
-    resolution: {integrity: sha512-nXKJmIrxbgXMIE2fKebJVAFJiFqb6LsyzfxYn/tqgkYNfqk6IBDX+cP6eV5qRE72sNHI1E/ogF72N5MjhNeOHA==}
+  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.2.114':
+    resolution: {integrity: sha512-Mhd7bumTwWvkgjSJnYvCgyt8DfmLiUoK92mfvAKxHX7i5YSw+h5Kprqh2Cap+2SBbpwZvnwIoEYGCxhGwE5ddg==}
     cpu: [arm64]
     os: [linux]
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.2.113':
-    resolution: {integrity: sha512-QMkDOEfOMg8W/PLAHnp3cU9wLWp/RvJuVlrwn5s4Oei/bP3kxfuV0uLoxXUZZNSnv2lcplxAKUGgOz7Xa0asFw==}
+  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.2.114':
+    resolution: {integrity: sha512-j/SfEoN6+fyEsp8EuPe+xKcGfsZtaBmdUUH+YSRk5H/lYgy38yNsDhdt+AJMQcdMKfHsiwZ3Y9Ajoe9G9wNwHQ==}
     cpu: [arm64]
     os: [linux]
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.2.113':
-    resolution: {integrity: sha512-PGpstZ8mWEQfCjDd+qV/rPsdLLkzFobINPpLr4ALMu8fQMEEs5SsabumGup48fnK3Z19/WlfI9FC1iVzxsE3LQ==}
+  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.2.114':
+    resolution: {integrity: sha512-c1URsameGHAcghen+mY6jvr2oypiAPHXJIdP4huxR25zPdXWv2x+BCy+vcRVeajsq4VmFzAyQJwaM+BXkmXjAw==}
     cpu: [x64]
     os: [linux]
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64@0.2.113':
-    resolution: {integrity: sha512-/CQz7jiOp98hfrLwDJvmfPXtGCuWFGr+j7Zbi40uHovd5+TXJ1fOZNMEdb4aVKW3KYPbxA1aT6XNP8nAgmuPvA==}
+  '@anthropic-ai/claude-agent-sdk-linux-x64@0.2.114':
+    resolution: {integrity: sha512-wbaExKDleLlm2zHEhb74GKMLVhtO0IUmFhdimQcdL6CdTkmDE8ZJi53tYWE9+jq+XWNRXoM2yEmKPzXoUmsJng==}
     cpu: [x64]
     os: [linux]
 
-  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.2.113':
-    resolution: {integrity: sha512-NqtFDTVPg7fh+yee7KnsVZ/MZ6VogE+dQcIobEN0NVl03i5pbQAWfSZNOEvhk2XyEaJ4rdk+/9MPED+UThF5gQ==}
+  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.2.114':
+    resolution: {integrity: sha512-qeWdUpQymcKCA92osPmffG4QogrOSvuffPvm6c2OlMDjCPYs8vKG7bSe1Vq5tP9tfBszKPVJWBDh+2ANkNissQ==}
     cpu: [arm64]
     os: [win32]
 
-  '@anthropic-ai/claude-agent-sdk-win32-x64@0.2.113':
-    resolution: {integrity: sha512-0VoW/fTkygn/uZqPhOPjmXaVc1H3wkNNJd/fMyWKDR2p76Y9loQPQZk2R5tNRWlK5mDo65F6+Omby0rCx9XtQw==}
+  '@anthropic-ai/claude-agent-sdk-win32-x64@0.2.114':
+    resolution: {integrity: sha512-nVr43WwsKvWA6rojw15qBS/f31srukdLxy1KwKzpftlpmkzQ9Lh8uhIafOmoIPzz67f8VJ8JqHE0caA5YrhX9A==}
     cpu: [x64]
     os: [win32]
 
-  '@anthropic-ai/claude-agent-sdk@0.2.113':
-    resolution: {integrity: sha512-TMeZeBDTdGNZek2VvRB4zCCFkJHbqKU1dn+OG3wms9h8z/DUKuDAUvjmmQCXP9c4K2ipPS1WmmRJljXRcKfStg==}
+  '@anthropic-ai/claude-agent-sdk@0.2.114':
+    resolution: {integrity: sha512-plJ+j17jew9tDMHir/90hXrwoB8cZ9GrIyG19zIJcFyQ8pVhRXjZRJCtF2ElfPoiwkxMmNu1Klqyui4xP4shPg==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
       zod: ^4.0.0
@@ -3425,6 +3425,10 @@ packages:
     resolution: {integrity: sha512-Vo1ab+QXPzZ4tCa8SwIHJFaSzy4R6SHf7BY79rFBDf0idraZWAkYrDjDj8uWaSm3S2TK+hJ7/t1CEmZ7jXw+pg==}
     engines: {node: '>=18.0.0'}
 
+  eventsource-parser@3.0.7:
+    resolution: {integrity: sha512-zwxwiQqexizSXFZV13zMiEtW1E3lv7RlUv+1f5FBiR4x7wFhEjm3aFTyYkZQWzyN08WnPdox015GoRH5D/E5YA==}
+    engines: {node: '>=18.0.0'}
+
   eventsource@3.0.7:
     resolution: {integrity: sha512-CRT1WTyuQoD771GW56XEZFQ/ZoSfWid1alKGDYMmkt2yl8UXrVR4pspqWNEcqKvVIzg6PAltWjxcSSPrboA4iA==}
     engines: {node: '>=18.0.0'}
@@ -3817,8 +3821,8 @@ packages:
   highlightjs-vue@1.0.0:
     resolution: {integrity: sha512-PDEfEF102G23vHmPhLyPboFCD+BkMGu+GuJe2d9/eH4FsCwvgBpnc9n0pGE+ffKdph38s6foEZiEjdgHdzp+IA==}
 
-  hono@4.12.12:
-    resolution: {integrity: sha512-p1JfQMKaceuCbpJKAPKVqyqviZdS0eUxH9v82oWo1kb9xjQ5wA6iP3FNVAPDFlz5/p7d45lO+BpSk1tuSZMF4Q==}
+  hono@4.12.14:
+    resolution: {integrity: sha512-am5zfg3yu6sqn5yjKBNqhnTX7Cv+m00ox+7jbaKkrLMRJ4rAdldd1xPd/JzbBWspqaQv6RSTrgFN95EsfhC+7w==}
     engines: {node: '>=16.9.0'}
 
   hosted-git-info@4.1.0:
@@ -6312,44 +6316,44 @@ snapshots:
       package-manager-detector: 1.6.0
       tinyexec: 1.0.2
 
-  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.2.113':
+  '@anthropic-ai/claude-agent-sdk-darwin-arm64@0.2.114':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.2.113':
+  '@anthropic-ai/claude-agent-sdk-darwin-x64@0.2.114':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.2.113':
+  '@anthropic-ai/claude-agent-sdk-linux-arm64-musl@0.2.114':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.2.113':
+  '@anthropic-ai/claude-agent-sdk-linux-arm64@0.2.114':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.2.113':
+  '@anthropic-ai/claude-agent-sdk-linux-x64-musl@0.2.114':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-linux-x64@0.2.113':
+  '@anthropic-ai/claude-agent-sdk-linux-x64@0.2.114':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.2.113':
+  '@anthropic-ai/claude-agent-sdk-win32-arm64@0.2.114':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk-win32-x64@0.2.113':
+  '@anthropic-ai/claude-agent-sdk-win32-x64@0.2.114':
     optional: true
 
-  '@anthropic-ai/claude-agent-sdk@0.2.113(zod@3.25.76)':
+  '@anthropic-ai/claude-agent-sdk@0.2.114(zod@3.25.76)':
     dependencies:
       '@anthropic-ai/sdk': 0.81.0(zod@3.25.76)
       '@modelcontextprotocol/sdk': 1.29.0(zod@3.25.76)
       zod: 3.25.76
     optionalDependencies:
-      '@anthropic-ai/claude-agent-sdk-darwin-arm64': 0.2.113
-      '@anthropic-ai/claude-agent-sdk-darwin-x64': 0.2.113
-      '@anthropic-ai/claude-agent-sdk-linux-arm64': 0.2.113
-      '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': 0.2.113
-      '@anthropic-ai/claude-agent-sdk-linux-x64': 0.2.113
-      '@anthropic-ai/claude-agent-sdk-linux-x64-musl': 0.2.113
-      '@anthropic-ai/claude-agent-sdk-win32-arm64': 0.2.113
-      '@anthropic-ai/claude-agent-sdk-win32-x64': 0.2.113
+      '@anthropic-ai/claude-agent-sdk-darwin-arm64': 0.2.114
+      '@anthropic-ai/claude-agent-sdk-darwin-x64': 0.2.114
+      '@anthropic-ai/claude-agent-sdk-linux-arm64': 0.2.114
+      '@anthropic-ai/claude-agent-sdk-linux-arm64-musl': 0.2.114
+      '@anthropic-ai/claude-agent-sdk-linux-x64': 0.2.114
+      '@anthropic-ai/claude-agent-sdk-linux-x64-musl': 0.2.114
+      '@anthropic-ai/claude-agent-sdk-win32-arm64': 0.2.114
+      '@anthropic-ai/claude-agent-sdk-win32-x64': 0.2.114
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - supports-color
@@ -7061,13 +7065,13 @@ snapshots:
 
   '@gar/promisify@1.1.3': {}
 
-  '@hono/node-server@1.19.14(hono@4.12.12)':
+  '@hono/node-server@1.19.14(hono@4.12.14)':
     dependencies:
-      hono: 4.12.12
+      hono: 4.12.14
 
-  '@hono/node-server@1.19.9(hono@4.12.12)':
+  '@hono/node-server@1.19.9(hono@4.12.14)':
     dependencies:
-      hono: 4.12.12
+      hono: 4.12.14
 
   '@humanfs/core@0.19.1': {}
 
@@ -7244,9 +7248,9 @@ snapshots:
 
   '@marijn/find-cluster-break@1.0.2': {}
 
-  '@modelcontextprotocol/sdk@1.25.3(hono@4.12.12)(zod@3.25.76)':
+  '@modelcontextprotocol/sdk@1.25.3(hono@4.12.14)(zod@3.25.76)':
     dependencies:
-      '@hono/node-server': 1.19.9(hono@4.12.12)
+      '@hono/node-server': 1.19.9(hono@4.12.14)
       ajv: 8.17.1
       ajv-formats: 3.0.1(ajv@8.17.1)
       content-type: 1.0.5
@@ -7268,17 +7272,17 @@ snapshots:
 
   '@modelcontextprotocol/sdk@1.29.0(zod@3.25.76)':
     dependencies:
-      '@hono/node-server': 1.19.14(hono@4.12.12)
+      '@hono/node-server': 1.19.14(hono@4.12.14)
       ajv: 8.18.0
       ajv-formats: 3.0.1(ajv@8.18.0)
       content-type: 1.0.5
       cors: 2.8.6
       cross-spawn: 7.0.6
       eventsource: 3.0.7
-      eventsource-parser: 3.0.6
+      eventsource-parser: 3.0.7
       express: 5.2.1
       express-rate-limit: 8.3.2(express@5.2.1)
-      hono: 4.12.12
+      hono: 4.12.14
       jose: 6.2.2
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
@@ -10044,6 +10048,8 @@ snapshots:
 
   eventsource-parser@3.0.6: {}
 
+  eventsource-parser@3.0.7: {}
+
   eventsource@3.0.7:
     dependencies:
       eventsource-parser: 3.0.6
@@ -10521,7 +10527,7 @@ snapshots:
 
   highlightjs-vue@1.0.0: {}
 
-  hono@4.12.12: {}
+  hono@4.12.14: {}
 
   hosted-git-info@4.1.0:
     dependencies:
@@ -12528,7 +12534,7 @@ snapshots:
 
   setprototypeof@1.2.0: {}
 
-  shadcn@3.8.2(@types/node@22.19.8)(hono@4.12.12)(typescript@5.9.3):
+  shadcn@3.8.2(@types/node@22.19.8)(hono@4.12.14)(typescript@5.9.3):
     dependencies:
       '@antfu/ni': 25.0.0
       '@babel/core': 7.29.0
@@ -12536,7 +12542,7 @@ snapshots:
       '@babel/plugin-transform-typescript': 7.28.6(@babel/core@7.29.0)
       '@babel/preset-typescript': 7.28.5(@babel/core@7.29.0)
       '@dotenvx/dotenvx': 1.52.0
-      '@modelcontextprotocol/sdk': 1.25.3(hono@4.12.12)(zod@3.25.76)
+      '@modelcontextprotocol/sdk': 1.25.3(hono@4.12.14)(zod@3.25.76)
       '@types/validate-npm-package-name': 4.0.2
       browserslist: 4.28.1
       commander: 14.0.3
